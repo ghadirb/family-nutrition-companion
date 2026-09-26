@@ -7,3 +7,71 @@
  .ai-quota{font-size:10px;color:#87958d;background:#f1f5ed;border-radius:8px;padding:6px 9px;margin:11px 0}.parsed-voice{display:grid;gap:6px;background:#f0f5ec;border:1px solid #dce9d8;border-radius:10px;padding:10px;margin-top:9px;font-size:10px;color:#718078}.parsed-voice span{display:flex;gap:4px}.parsed-voice b{color:#397153}
 .portion-rows{display:grid;gap:8px;margin-top:8px}.portion-row{display:flex;align-items:center;gap:9px;border:1px solid #e5e8e1;border-radius:11px;padding:8px 10px;flex-wrap:wrap}.portion-who{display:flex;align-items:center;gap:7px;font-size:11px;min-width:90px}.compact-tabs{display:flex;gap:6px}.compact-tabs button{border:1px solid #e5e8e1;border-radius:8px;padding:6px 10px;font-size:10px;color:#87928c}.status-tabs button.selected{background:#e5f0e2;color:#4f8662;border-color:#bfdbbf}.status-tabs button.selected.muted{background:#f5e6e6;color:#a35a5a;border-color:#e6c8c8}.portion-amount{border:1px solid #e3e7df;border-radius:9px;padding:6px 8px;font-size:10px;background:#fafbf7;color:#47564f;margin-right:auto}.simple-report{display:flex;gap:10px;align-items:flex-start;margin-top:14px}.simple-report ul{margin:0;padding-right:18px;display:grid;gap:6px}.simple-report li{font-size:11px;color:#4b5c53;line-height:1.8}
 .avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.photo-row{display:flex;align-items:center;gap:12px;margin-bottom:6px}.photo-preview{width:56px;height:56px;border-radius:16px;background:#e8ede4;color:#6a7a70;display:grid;place-items:center;font-weight:700;overflow:hidden;flex:none}.photo-preview img{width:100%;height:100%;object-fit:cover}.photo-upload{font-size:10px;color:#67766f;flex:1}.photo-upload input{margin-top:5px}
+
+/* --- Premium gating, family wizard, plan extras, analysis (added) --- */
+.pill.gold{background:#f3e6c8;color:#8a6a25}
+.lock-card{display:flex;align-items:center;gap:14px;margin-top:14px;border-color:#ecdfc4}
+.lock-icon{width:40px;height:40px;border-radius:13px;background:#f5efe2;color:#b18538;display:grid;place-items:center;flex:none}
+.lock-card h3{font-size:13px;margin:6px 0 3px}
+.lock-card p{font-size:10px;color:#958874;margin:0}
+.lock-card button{margin-right:auto;flex:none}
+.lock-hint{font-size:10px;color:#a07c5a;background:#f7f1e6;border-radius:9px;padding:8px 11px;margin:10px 0}
+.empty-hint{font-size:10px;color:#9aa49f}
+
+.wizard-modal{width:min(480px,100%)}
+.wizard-steps{display:flex;gap:8px;margin-bottom:18px}
+.wizard-steps span{font-size:10px;color:#aab4ae;background:#f3f3ed;border-radius:8px;padding:6px 9px}
+.wizard-steps span.active{background:#dcebdd;color:#4b8462;font-weight:700}
+.wizard-steps span.done{background:#eaf3e7;color:#6ba279}
+.wizard-member-list{display:grid;gap:7px;margin:14px 0}
+.wizard-member-row{display:flex;align-items:center;gap:9px;border:1px solid #eef0ea;border-radius:11px;padding:8px 10px;font-size:11px}
+.wizard-member-row small{color:#9aa49f;margin-right:auto}
+.wizard-member-row button{color:#b98a7c}
+.wizard-nav{display:flex;justify-content:space-between;margin-top:16px}
+.wizard-nav button{display:flex;align-items:center;gap:5px;font-size:11px;color:#6c7871;padding:9px 13px;border-radius:9px}
+.wizard-nav .primary{color:#fff}
+
+.plan-banner-actions{display:flex;flex-direction:column;gap:7px;align-items:stretch}
+.plan-banner-actions .secondary{white-space:nowrap}
+
+.meal-extra{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.meal-extra span{font-size:9px;background:#f1f3ee;color:#7c8880;border-radius:7px;padding:3px 6px;display:inline-flex;align-items:center;gap:3px}
+.meal-extra .sub-badge{background:#eee4f1;color:#805f8e}
+
+.meal-editor-modal{width:min(540px,100%);max-height:90vh;overflow:auto}
+.field-label{display:block;font-size:11px;color:#67766f;margin:14px 0 8px}
+.ingredient-list,.substitute-list{display:grid;gap:6px;margin-bottom:8px}
+.ingredient-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;border:1px solid #eef0ea;border-radius:9px;padding:7px 9px;font-size:10px}
+.ingredient-row small{color:#a0aaa4}
+.ingredient-row button{color:#b98a7c}
+.ingredient-add,.substitute-add{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px}
+.substitute-add{grid-template-columns:110px 1fr auto}
+.ingredient-add input,.substitute-add input,.substitute-add select{border:1px solid #e3e7df;background:#fafbf7;border-radius:9px;padding:8px;font-size:10px}
+.ingredient-add button,.substitute-add button{background:#e2efdf;color:#4b8462;border-radius:9px;display:grid;place-items:center}
+.substitute-row{display:flex;align-items:center;gap:8px;border:1px solid #eef0ea;border-radius:9px;padding:7px 9px;font-size:10px}
+.substitute-row span{color:#8c968f;flex:1}
+.substitute-row button{color:#b98a7c}
+
+.person-picker{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+.person-picker button{display:flex;align-items:center;gap:6px;border:1px solid #e5e8e1;border-radius:20px;padding:6px 11px;font-size:10px;color:#7c8881}
+.person-picker button.picked{background:#dcebdd;border-color:#bcd8bc;color:#4b8462}
+
+.member-analysis{margin-top:14px}
+.analysis-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.analysis-grid div{background:#f4f6f1;border-radius:12px;padding:10px;text-align:center}
+.analysis-grid b{display:block;font-size:13px;color:#4b8462;margin-bottom:3px}
+.analysis-grid span{font-size:9px;color:#8f9a93}
+.member-analysis h4{font-size:11px;margin:14px 0 8px;color:#5a6a62}
+.chip-list{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
+.chip-list li{background:#eef3ec;border-radius:16px;padding:5px 10px;font-size:10px;color:#4e6a58}
+.chip-list.muted li{background:#f2f0eb;color:#9a9186}
+.kid-note{background:#fff3d6;border-radius:12px;padding:12px 14px;font-size:11px;color:#8a6a25;margin:12px 0}
+
+.snack-analysis{margin-top:14px}
+.compare-list{display:grid;gap:8px;margin:14px 0}
+.compare-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;border-top:1px solid #f0f0ea;padding:9px 0;font-size:11px}
+.compare-row b{color:#4b8462}
+.compare-row small{font-size:9px;color:#9aa49f}
+.compare-row small.up{color:#c47f54}
+.compare-row small.down{color:#5c8e6e}
+.gentle-inline{font-size:10px;color:#9a9186;margin-top:10px}
