@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
+const staticRoot = fs.existsSync(path.join(root, 'dist')) ? path.join(root, 'dist') : root
 const port = Number(process.env.PORT || 8787)
 const key = process.env.AVALAI_API_KEY
 const apiBase = process.env.AVALAI_BASE_URL || 'https://api.avalai.ir/v1'
@@ -29,7 +30,7 @@ const server = http.createServer(async (req,res) => {
   if (req.url === '/api/ai/search' && req.method === 'POST') { try { const { query } = await readBody(req); const result=await avalai(webModel,[{role:'system',content:'با جستجوی وب پاسخ دقیق فارسی بده و منابع را در پایان فهرست کن.'},{role:'user',content:query}]); return json(res,200,{...result,model:webModel}) } catch(e) { return json(res,500,{error:e.message}) } }
   if (req.url?.startsWith('/api/')) return json(res,404,{error:'Not found'})
   const file = req.url === '/' ? '/index.html' : req.url
-  const safe = path.normalize(path.join(root, file)); if (!safe.startsWith(root)) return json(res,403,{error:'Forbidden'})
+  const safe = path.normalize(path.join(staticRoot, file)); if (!safe.startsWith(staticRoot)) return json(res,403,{error:'Forbidden'})
   fs.readFile(safe,(err,data)=>{ if(err) return json(res,404,{error:'Not found'}); const ext=path.extname(safe); const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json'}; res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream'});res.end(data) })
 })
 server.listen(port,()=>console.log(`Family Nutrition Companion server listening on http://localhost:${port}`))
