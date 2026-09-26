@@ -24,13 +24,17 @@ npm install
 npm run dev
 ```
 
-برای اجرای دستیار AI:
+برای اجرای نسخه production همراه با دستیار AI:
 
 ```bash
 Copy-Item .env.example .env
 # مقدار AVALAI_API_KEY را در .env قرار دهید
+npm install
+npm run build
 npm start
 ```
+
+برای توسعه، سرور AI را با `npm start` و رابط Vite را در یک ترمینال جدا با `npm run dev` اجرا کنید.
 
 مدل پیش‌فرض پرسش‌های عادی `gpt-5.4-mini` و مدل پرسش‌های نیازمند جستجوی وب `sonar` است. اگر Sonar موقتاً در دسترس نباشد، برنامه با برچسب شفاف به مدل اقتصادی fallback می‌کند و ادعای تازه بدون منبع را قطعی نشان نمی‌دهد.
 
