@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { MessageCircle, Send, Globe2, LoaderCircle } from 'lucide-react'
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://family-nutrition-companion-api.ghadir-baraty.workers.dev'
+
 export function AiAssistant({ data }) {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -11,7 +13,7 @@ export function AiAssistant({ data }) {
     if (!question.trim() || loading) return
     setLoading(true); setAnswer(''); setSources([])
     try {
-      const response = await fetch('/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, family: { name: data.familyName, members: data.members, recentLogs: data.logs.slice(0, 25), plan: data.plan } }) })
+      const response = await fetch(`${API_BASE}/api/ai/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, family: { name: data.familyName, members: data.members, recentLogs: data.logs.slice(0, 25), plan: data.plan } }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'خطا در ارتباط با مدل')
       setAnswer(result.answer || 'پاسخی دریافت نشد.')
