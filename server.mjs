@@ -27,6 +27,16 @@ const server = http.createServer(async (req,res) => {
   if (req.url === '/api/ai/chat' && req.method === 'POST') {
     try { const { question, family } = await readBody(req); const webNeeded = /امروز|جدید|قیمت|خبر|اینترنت|جستجو|تازه|بازار|قانون|منبع|current|latest|price|news|search/i.test(question || ''); const model = webNeeded ? webModel : cheapModel; const system = `تو دستیار تغذیه خانواده هستی. پاسخ پزشکی قطعی، تشخیص یا ایجاد احساس گناه ممنوع است. پاسخ را فارسی، کوتاه و عملی بده. داده خانواده را فقط برای شخصی‌سازی استفاده کن. ${webNeeded ? 'برای ادعاهای تازه، از جستجوی وب استفاده کن و منابع را در پاسخ ذکر کن.' : ''}`; let result; let usedModel=model; try { result = await avalai(model,[{role:'system',content:system},{role:'user',content:`سؤال: ${question}\nداده خانواده (ممکن است ناقص باشد): ${JSON.stringify(family)}`}]) } catch (error) { if (!webNeeded) throw error; result = await avalai(cheapModel,[{role:'system',content:`${system} سرویس جستجوی وب موقتاً در دسترس نیست؛ این محدودیت را شفاف بگو و ادعای تازه بدون منبع نساز.`},{role:'user',content:`سؤال: ${question}\nداده خانواده: ${JSON.stringify(family)}`}]); usedModel=cheapModel; result.answer=`سرویس جستجوی وب موقتاً در دسترس نبود؛ پاسخ زیر بدون راستی‌آزمایی زنده ارائه شده است.\n\n${result.answer}` } return json(res,200,{...result,model:usedModel,webSearch:webNeeded,webFallback:usedModel!==model}) } catch(e) { return json(res,500,{error:e.message}) }
   }
+  if (req.url === '/api/ai/transcribe' && req.method === 'POST') {
+    try {
+      if (!key) throw new Error('AVALAI_API_KEY تنظیم نشده است.')
+      const incoming = await req.formData(); const file = incoming.get('file')
+      if (!file || typeof file.arrayBuffer !== 'function') return json(res,400,{error:'فایل صوتی ارسال نشده است.'})
+      const body = new FormData(); body.append('file', new Blob([await file.arrayBuffer()], { type: file.type || 'audio/webm' }), file.name || 'voice.webm'); body.append('model', process.env.AVALAI_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe'); body.append('language', 'fa')
+      const response = await fetch(`${apiBase}/audio/transcriptions`, { method:'POST', headers:{ Authorization:`Bearer ${key}` }, body }); const result = await response.json().catch(()=>({})); if(!response.ok) throw new Error(result.error?.message || `AvalAI HTTP ${response.status}`)
+      return json(res,200,{text:result.text||result.transcript||'',model:process.env.AVALAI_TRANSCRIBE_MODEL||'gpt-4o-mini-transcribe'})
+    } catch(e) { return json(res,500,{error:e.message}) }
+  }
   if (req.url === '/api/ai/search' && req.method === 'POST') { try { const { query } = await readBody(req); const result=await avalai(webModel,[{role:'system',content:'با جستجوی وب پاسخ دقیق فارسی بده و منابع را در پایان فهرست کن.'},{role:'user',content:query}]); return json(res,200,{...result,model:webModel}) } catch(e) { return json(res,500,{error:e.message}) } }
   if (req.url?.startsWith('/api/')) return json(res,404,{error:'Not found'})
   const file = req.url === '/' ? '/index.html' : req.url
