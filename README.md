@@ -44,3 +44,20 @@ npm start
 مدل پیش‌فرض پرسش‌های عادی `gpt-5.4-mini` و مدل پرسش‌های نیازمند جستجوی وب `sonar` است. اگر Sonar موقتاً در دسترس نباشد، برنامه با برچسب شفاف به مدل اقتصادی fallback می‌کند و ادعای تازه بدون منبع را قطعی نشان نمی‌دهد.
 
 این پروژه عمداً لایه داده و قابلیت‌های آنلاین را جدا نگه می‌دارد تا در مرحله بعد بتوان Repository/Service برای AI، همگام‌سازی ابری، OCR و Health Connect اضافه کرد.
+
+## ساخت اپلیکیشن اندروید (APK)
+
+این پروژه یک اپ وب React/Vite است که با Capacitor داخل یک پوسته اندرویدی (WebView) بسته‌بندی می‌شود؛ اپ Native با Kotlin/Compose نیست. پوشه `android/` پروژه Gradle اندروید را نگه می‌دارد.
+
+ساخت محلی (نیاز به Android SDK / JDK 21):
+
+```bash
+npm install
+npm run android:build
+```
+
+خروجی در مسیر `android/app/build/outputs/apk/debug/app-debug.apk` قرار می‌گیرد.
+
+در GitHub Actions، هر Push به `main` علاوه بر artifact وب (`family-nutrition-companion-dist`)، یک artifact جدید به نام `family-nutrition-companion-apk` هم تولید می‌کند که همان فایل APK قابل‌نصب است؛ آن را از تب Actions همان اجرا دانلود کنید.
+
+نسخه فعلی APK نسخه Debug (بدون امضای Release) است؛ برای انتشار در Play Store باید مرحله امضای Release و افزایش شماره نسخه هم اضافه شود.

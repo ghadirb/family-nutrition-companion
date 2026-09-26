@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">تغذیه‌یار خانواده</string>
+    <string name="title_activity_main">تغذیه‌یار خانواده</string>
+    <string name="package_name">ir.ghadirb.familynutrition</string>
+    <string name="custom_url_scheme">ir.ghadirb.familynutrition</string>
+</resources>

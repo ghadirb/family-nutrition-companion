@@ -1,0 +1,8 @@
+{
+  "appId": "ir.ghadirb.familynutrition",
+  "appName": "تغذیه‌یار خانواده",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
