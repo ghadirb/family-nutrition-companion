@@ -1,0 +1,10 @@
+name = "family-nutrition-companion-api"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-11-01"
+
+# Secrets (set via `wrangler secret put` or CI, NOT here):
+#   AVALAI_API_KEY        - required, AvalAI API key
+#   AVALAI_BASE_URL        - optional, defaults to https://api.avalai.ir/v1
+#   AVALAI_WEB_MODEL        - optional, defaults to "sonar"
+#   AVALAI_CHAT_MODEL       - optional, defaults to "gpt-5.4-mini"
+#   AVALAI_TRANSCRIBE_MODEL - optional, defaults to "gpt-4o-mini-transcribe"
