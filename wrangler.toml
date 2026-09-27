@@ -1,6 +1,7 @@
 name = "family-nutrition-companion-api"
 main = "cloudflare-worker.js"
 compatibility_date = "2024-11-01"
+account_id = "1609c905e10f5c9a6cf1a0cb240f356f"
 
 # Secrets (set via `wrangler secret put` or CI, NOT here):
 #   AVALAI_API_KEY        - required, AvalAI API key
