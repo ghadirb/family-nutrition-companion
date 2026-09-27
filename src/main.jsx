@@ -807,7 +807,9 @@ function App() {
       <main className="content">
         <header className="topbar">
           <div>
-            <p className="eyebrow">شنبه، ۲۸ شهریور ۱۴۰۴</p>
+            <p className="eyebrow">
+              {data.familyName} · شنبه، ۲۸ شهریور ۱۴۰۴
+            </p>
             <h1>
               {tab === "home"
                 ? `صبح بخیر، ${data.familyName} 🌿`
@@ -819,6 +821,13 @@ function App() {
             </h1>
           </div>
           <div className="top-actions">
+            <button
+              className="icon-btn family-btn"
+              onClick={() => setModal("family")}
+              title="ویرایش نام خانواده"
+            >
+              <Users size={18} />
+            </button>
             <button className="icon-btn">
               <Bell size={19} />
             </button>

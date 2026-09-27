@@ -77,3 +77,10 @@
 .compare-row small.up{color:#c47f54}
 .compare-row small.down{color:#5c8e6e}
 .gentle-inline{font-size:10px;color:#9a9186;margin-top:10px}
+
+/* The family-name shortcut in the topbar must stay reachable on every
+   screen size — earlier the sidebar's family-name entry point was fully
+   hidden on mobile widths with nothing to replace it. This overrides the
+   .top-actions .icon-btn{display:none} rule at narrow widths just for
+   this one button (higher specificity wins regardless of source order). */
+.top-actions .icon-btn.family-btn{display:grid}
