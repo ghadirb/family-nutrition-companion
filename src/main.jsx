@@ -10,6 +10,7 @@ import {
   Bell,
   Settings2,
   ChevronLeft,
+  ChevronRight,
   Utensils,
   Droplets,
   Cookie,
@@ -359,6 +360,46 @@ const seed = {
         { id: 33, time: "شام", title: "سالاد شیرازی و تخم‌مرغ", icon: "🥗" },
       ],
     },
+    {
+      id: 4,
+      day: "سه‌شنبه",
+      date: "۳۱ شهریور",
+      meals: [
+        { id: 41, time: "صبحانه", title: "پنیر و گردو و خیار", icon: "🧀" },
+        { id: 42, time: "ناهار", title: "فسنجان با برنج", icon: "🍯" },
+        { id: 43, time: "شام", title: "آش رشته", icon: "🍜" },
+      ],
+    },
+    {
+      id: 5,
+      day: "چهارشنبه",
+      date: "۱ مهر",
+      meals: [
+        { id: 51, time: "صبحانه", title: "تخم‌مرغ آب‌پز و نان", icon: "🥚" },
+        { id: 52, time: "ناهار", title: "قیمه با برنج", icon: "🍛" },
+        { id: 53, time: "شام", title: "کوکو سیب‌زمینی و ماست", icon: "🥔" },
+      ],
+    },
+    {
+      id: 6,
+      day: "پنجشنبه",
+      date: "۲ مهر",
+      meals: [
+        { id: 61, time: "صبحانه", title: "نان و عسل و گردو", icon: "🍯" },
+        { id: 62, time: "ناهار", title: "جوجه‌کباب با برنج", icon: "🍢" },
+        { id: 63, time: "شام", title: "آبگوشت", icon: "🍲" },
+      ],
+    },
+    {
+      id: 7,
+      day: "جمعه",
+      date: "۳ مهر",
+      meals: [
+        { id: 71, time: "صبحانه", title: "نیمرو و گوجه", icon: "🍳" },
+        { id: 72, time: "ناهار", title: "کباب کوبیده با برنج", icon: "🍢" },
+        { id: 73, time: "شام", title: "سبزی‌پلو و ماهی", icon: "🐟" },
+      ],
+    },
   ],
   logs: [
     {
@@ -484,7 +525,13 @@ function App() {
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
     [selected, setSelected] = useState(null),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [collapsed, setCollapsed] = useState(
+      () => localStorage.getItem("sidebar-collapsed") === "1",
+    );
+  useEffect(() => {
+    localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
+  }, [collapsed]);
   const notify = (m) => {
     setToast(m);
     setTimeout(() => setToast(""), 2500);
@@ -574,8 +621,16 @@ function App() {
     r.readAsText(file);
   };
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={"app-shell" + (collapsed ? " sidebar-collapsed" : "")}>
+      <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={() => setCollapsed((c) => !c)}
+          title={collapsed ? "بزرگ کردن منو" : "کوچک کردن منو"}
+        >
+          {collapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
         <div className="brand">
           <div className="brand-mark">✦</div>
           <div>
@@ -603,6 +658,7 @@ function App() {
               key={id}
               className={tab === id ? "active" : ""}
               onClick={() => setTab(id)}
+              title={label}
             >
               <Icon size={19} />
               <span>{label}</span>
@@ -775,7 +831,7 @@ function App() {
           }}
         />
       )}{" "}
-      {selected && (
+      {selected && modal !== "member" && (
         <MemberDetail
           member={selected}
           data={data}
@@ -1057,6 +1113,77 @@ function Plan({ data, setData, notify, setTab }) {
   const results = foodBank.filter((f) =>
     norm(f.name + " " + f.aliases).includes(norm(search)),
   );
+  const suggestSmart = () => {
+    const usedTitles = new Set(
+      data.plan.flatMap((d) => d.meals.map((m) => m.title)),
+    );
+    const slots = ["صبحانه", "ناهار", "شام"];
+    let target = null;
+    for (const day of data.plan) {
+      const missing = slots.find(
+        (s) => !day.meals.some((m) => m.time === s),
+      );
+      if (missing) {
+        target = { day, slot: missing };
+        break;
+      }
+    }
+    if (!target) {
+      // همه روزها کامل‌اند؛ پرتکرارترین غذای هفته را با یک گزینهٔ تازه جایگزین کن
+      const counts = {};
+      data.plan.forEach((d) =>
+        d.meals.forEach((m) => (counts[m.title] = (counts[m.title] || 0) + 1)),
+      );
+      const [repeated] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0] || [];
+      const day = data.plan.find((d) => d.meals.some((m) => m.title === repeated));
+      const meal = day?.meals.find((m) => m.title === repeated);
+      if (!day || !meal) {
+        notify("همهٔ وعده‌های این هفته پر و متنوع است؛ چیزی برای پیشنهاد نیست.");
+        return;
+      }
+      target = { day, slot: meal.time, replaceId: meal.id };
+    }
+    const group = target.slot === "صبحانه" ? "صبحانه" : "غذای اصلی";
+    const candidates = foodBank.filter(
+      (f) => f.group === group && !usedTitles.has(f.name),
+    );
+    const pick = candidates[Math.floor(Math.random() * candidates.length)] ||
+      foodBank.find((f) => f.group === group);
+    if (!pick) {
+      notify("موردی برای پیشنهاد در بانک غذا پیدا نشد.");
+      return;
+    }
+    const recipe = recipeBank[pick.name];
+    const baseServings = recipe?.baseServings || data.members.length || 4;
+    const newMeal = {
+      id: Date.now(),
+      time: target.slot,
+      title: pick.name,
+      icon: pick.icon,
+      description: "پیشنهاد خودکار بر اساس بانک غذا و تنوع هفته.",
+      suggestedTime: "",
+      baseServings,
+      servings: data.members.length || baseServings,
+      ingredients: recipe?.ingredients || [],
+      substitutes: {},
+    };
+    setData((d) => ({
+      ...d,
+      plan: d.plan.map((day) =>
+        day.id === target.day.id
+          ? {
+              ...day,
+              meals: target.replaceId
+                ? day.meals.map((m) => (m.id === target.replaceId ? newMeal : m))
+                : [...day.meals, newMeal],
+            }
+          : day,
+      ),
+    }));
+    notify(
+      `برای ${target.day.day}، ${target.slot} «${pick.name}» پیشنهاد و اضافه شد.`,
+    );
+  };
   return (
     <div className="page-body">
       <div className="plan-banner">
@@ -1066,14 +1193,7 @@ function Plan({ data, setData, notify, setTab }) {
           <p>هر وعده را ویرایش، حذف یا جایگزین کنید.</p>
         </div>
         <div className="plan-banner-actions">
-          <button
-            className="primary"
-            onClick={() =>
-              notify(
-                "پیشنهاد بر اساس بانک غذا آماده شد؛ قبل از ذخیره بررسی کنید.",
-              )
-            }
-          >
+          <button className="primary" onClick={suggestSmart}>
             <Sparkles size={17} /> پیشنهاد هوشمند
           </button>
           <button className="secondary" onClick={() => setTab?.("shopping")}>
@@ -1405,6 +1525,10 @@ function QuickAdd({ members, close, save }) {
         .forEach((m) => (e[m.id] = { status: "خورد", amount: "۱ سهم" }));
       return e;
     });
+  const chooseKind = (k) => {
+    setKind(k);
+    setMeal(k === "drink" ? "نوشیدنی" : k === "snack" ? "میان‌وعده" : "ناهار");
+  };
   const setStatus = (id, st) =>
     setEntries((e) => {
       const cur = e[id];
@@ -1447,7 +1571,9 @@ function QuickAdd({ members, close, save }) {
           <X size={18} />
         </button>
         <div className="modal-title">
-          <div className="modal-symbol">＋</div>
+          <div className="modal-symbol">
+            {kind === "meal" ? "🍲" : kind === "snack" ? "🍪" : "💧"}
+          </div>
           <div>
             <h2>ثبت سریع واقعی</h2>
             <p>یک غذا، چند نفر، سهم متفاوت — برای هرکس جداگانه ثبت کنید.</p>
@@ -1460,8 +1586,9 @@ function QuickAdd({ members, close, save }) {
             ["drink", "💧", "نوشیدنی"],
           ].map((t) => (
             <button
+              type="button"
               className={kind === t[0] ? "chosen" : ""}
-              onClick={() => setKind(t[0])}
+              onClick={() => chooseKind(t[0])}
               key={t[0]}
             >
               <span>{t[1]}</span>
@@ -1470,12 +1597,22 @@ function QuickAdd({ members, close, save }) {
           ))}
         </div>
         <label>
-          نام غذا یا خوراکی
+          {kind === "meal"
+            ? "نام غذا"
+            : kind === "snack"
+              ? "نام تنقلات"
+              : "نام نوشیدنی"}
           <input
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="مثلاً عدس‌پلو، چیپس، آب..."
+            placeholder={
+              kind === "meal"
+                ? "مثلاً عدس‌پلو، قورمه‌سبزی..."
+                : kind === "snack"
+                  ? "مثلاً چیپس، بستنی، خرما..."
+                  : "مثلاً آب، دوغ، آبمیوه..."
+            }
           />
         </label>
         <div className="two-fields">

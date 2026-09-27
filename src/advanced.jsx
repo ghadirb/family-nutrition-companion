@@ -294,12 +294,33 @@ export function ReminderCenter({ data, setData, notify }) {
   useEffect(() => setData((d) => ({ ...d, reminders })), [reminders]);
   const toggle = (key) => setReminders((r) => ({ ...r, [key]: !r[key] }));
   const ask = async () => {
+    const isNative =
+      typeof window !== "undefined" &&
+      window.Capacitor &&
+      typeof window.Capacitor.isNativePlatform === "function" &&
+      window.Capacitor.isNativePlatform();
     if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        notify("اعلان‌های مرورگر از قبل فعال است.");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        notify(
+          "اجازه اعلان قبلاً رد شده؛ برای فعال‌سازی باید از تنظیمات مرورگر/دستگاه اجازه دهید.",
+        );
+        return;
+      }
       const p = await Notification.requestPermission();
       notify(
         p === "granted" ? "اجازه اعلان فعال شد." : "اجازه اعلان داده نشد.",
       );
-    } else notify("مرورگر شما اعلان را پشتیبانی نمی‌کند.");
+    } else if (isNative) {
+      notify(
+        "اعلان‌های پوش واقعی در نسخهٔ اندروید هنوز وصل نشده و در به‌روزرسانی بعدی اضافه می‌شود؛ تا آن زمان یادآوری‌ها همین‌جا ذخیره می‌مانند.",
+      );
+    } else {
+      notify("این مرورگر از اعلان پشتیبانی نمی‌کند.");
+    }
   };
   return (
     <div className="page-body">
@@ -534,15 +555,11 @@ export function HealthConnectCard({ notify }) {
       <div>
         <h3>Health Connect</h3>
         <p>
-          اتصال به داده‌های سلامتی Android در نسخه موبایل آماده است و بدون رضایت
-          شما فعال نمی‌شود.
+          اتصال به داده‌های سلامتی Android هنوز به این نسخه وصل نشده و در
+          به‌روزرسانی بعدی اضافه می‌شود؛ بدون رضایت صریح شما فعال نخواهد شد.
         </p>
       </div>
-      <button
-        onClick={() => notify("این اتصال در نسخه Android فعال خواهد شد.")}
-      >
-        اتصال اختیاری
-      </button>
+      <span className="soon-badge">به‌زودی</span>
     </div>
   );
 }
