@@ -3,9 +3,11 @@ package ir.ghadirb.familynutrition;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.webkit.PermissionRequest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 
 public class MainActivity extends BridgeActivity {
   private static final int RUNTIME_PERMISSIONS_REQUEST = 4121;
@@ -15,6 +17,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(HealthConnectPlugin.class);
     super.onCreate(savedInstanceState);
     requestMediaPermissionsIfNeeded();
+    allowWebViewMediaPermissionRequests();
   }
 
   // ثبت صوتی («AvalAI Transcribe») و ثبت عکس غذا از getUserMedia/دوربین داخل
@@ -32,5 +35,34 @@ public class MainActivity extends BridgeActivity {
     if (!toRequest.isEmpty()) {
       ActivityCompat.requestPermissions(this, toRequest.toArray(new String[0]), RUNTIME_PERMISSIONS_REQUEST);
     }
+  }
+
+  // با وجود مجوز runtime، خودِ WebView به‌صورت پیش‌فرض درخواست‌های
+  // getUserMedia (audio/video) را رد می‌کند مگر این‌که صریحاً در
+  // onPermissionRequest تأیید شوند. اینجا فقط زمانی تأیید می‌کنیم که
+  // مجوز اندرویدی متناظر واقعاً به کاربر داده شده باشد.
+  private void allowWebViewMediaPermissionRequests() {
+    getBridge().getWebView().setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+      @Override
+      public void onPermissionRequest(PermissionRequest request) {
+        java.util.List<String> grantable = new java.util.ArrayList<>();
+        for (String resource : request.getResources()) {
+          if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)
+              && ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                  == PackageManager.PERMISSION_GRANTED) {
+            grantable.add(resource);
+          } else if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)
+              && ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                  == PackageManager.PERMISSION_GRANTED) {
+            grantable.add(resource);
+          }
+        }
+        if (grantable.isEmpty()) {
+          request.deny();
+        } else {
+          request.grant(grantable.toArray(new String[0]));
+        }
+      }
+    });
   }
 }
