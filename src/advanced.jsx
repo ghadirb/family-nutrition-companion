@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import {
   Plus,
   Trash2,
@@ -13,7 +14,15 @@ import {
   HeartPulse,
   X,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
+import HealthConnect from "./healthConnect.js";
+import {
+  DEFAULT_REMINDER_TIMES,
+  getNotificationStatus,
+  requestNotificationPermission,
+  syncReminderSchedule,
+} from "./notifications.js";
 
 const defaultShopping = [
   { id: 1, title: "برنج", amount: "۲ کیلو", group: "خشکبار", done: false },
@@ -282,6 +291,14 @@ export function Inventory({ data, setData, notify }) {
   );
 }
 
+const REMINDER_ROWS = [
+  ["breakfast", "یادآوری صبحانه", "زمان پیشنهادی صبحانه"],
+  ["lunch", "یادآوری ناهار", "زمان پیشنهادی ناهار"],
+  ["dinner", "یادآوری شام", "زمان پیشنهادی شام"],
+  ["water", "یادآوری آب", "یادآوری در طول روز"],
+  ["expiry", "نزدیک شدن انقضا", "مواد غذایی نزدیک به انقضا"],
+];
+
 export function ReminderCenter({ data, setData, notify }) {
   const defaults = data.reminders || {
     breakfast: true,
@@ -291,68 +308,121 @@ export function ReminderCenter({ data, setData, notify }) {
     expiry: true,
   };
   const [reminders, setReminders] = useState(defaults);
+  const [times, setTimes] = useState(data.reminderTimes || DEFAULT_REMINDER_TIMES);
+  const [status, setStatus] = useState("checking"); // checking | granted | denied | prompt | unsupported
+  const isNative =
+    typeof Capacitor !== "undefined" && Capacitor.isNativePlatform
+      ? Capacitor.isNativePlatform()
+      : false;
+
   useEffect(() => setData((d) => ({ ...d, reminders })), [reminders]);
+  useEffect(() => setData((d) => ({ ...d, reminderTimes: times })), [times]);
+
+  useEffect(() => {
+    getNotificationStatus().then(setStatus);
+  }, []);
+
+  // هر بار که یادآوری فعال یا زمان‌ها عوض شود، در صورتی که اجازه از قبل گرفته
+  // شده، زمان‌بندی واقعی روی اندروید دوباره ساخته می‌شود.
+  useEffect(() => {
+    if (status === "granted") {
+      syncReminderSchedule(reminders, times);
+    }
+  }, [reminders, times, status]);
+
   const toggle = (key) => setReminders((r) => ({ ...r, [key]: !r[key] }));
-  const ask = async () => {
-    const isNative =
-      typeof window !== "undefined" &&
-      window.Capacitor &&
-      typeof window.Capacitor.isNativePlatform === "function" &&
-      window.Capacitor.isNativePlatform();
-    if ("Notification" in window) {
-      if (Notification.permission === "granted") {
-        notify("اعلان‌های مرورگر از قبل فعال است.");
-        return;
-      }
-      if (Notification.permission === "denied") {
-        notify(
-          "اجازه اعلان قبلاً رد شده؛ برای فعال‌سازی باید از تنظیمات مرورگر/دستگاه اجازه دهید.",
-        );
-        return;
-      }
-      const p = await Notification.requestPermission();
+  const changeTime = (key, value) => setTimes((t) => ({ ...t, [key]: value }));
+
+  const enableNotifications = async () => {
+    const current = await getNotificationStatus();
+    if (current === "unsupported") {
+      notify("این دستگاه/مرورگر از اعلان پشتیبانی نمی‌کند.");
+      setStatus("unsupported");
+      return;
+    }
+    if (current === "granted") {
+      notify("اعلان‌ها از قبل فعال است.");
+      setStatus("granted");
+      await syncReminderSchedule(reminders, times);
+      return;
+    }
+    if (current === "denied") {
       notify(
-        p === "granted" ? "اجازه اعلان فعال شد." : "اجازه اعلان داده نشد.",
+        isNative
+          ? "اجازهٔ اعلان قبلاً رد شده؛ برای فعال‌سازی باید از تنظیمات اندروید اجازه دهید."
+          : "اجازهٔ اعلان قبلاً رد شده؛ برای فعال‌سازی باید از تنظیمات مرورگر اجازه دهید.",
       );
-    } else if (isNative) {
-      notify(
-        "اعلان‌های پوش واقعی در نسخهٔ اندروید هنوز وصل نشده و در به‌روزرسانی بعدی اضافه می‌شود؛ تا آن زمان یادآوری‌ها همین‌جا ذخیره می‌مانند.",
-      );
+      setStatus("denied");
+      return;
+    }
+    const granted = await requestNotificationPermission();
+    setStatus(granted ? "granted" : "denied");
+    if (granted) {
+      notify("اعلان‌ها با موفقیت فعال شد.");
+      await syncReminderSchedule(reminders, times);
     } else {
-      notify("این مرورگر از اعلان پشتیبانی نمی‌کند.");
+      notify("اجازهٔ اعلان داده نشد.");
     }
   };
+
+  const statusLabel = {
+    checking: "در حال بررسی وضعیت اعلان…",
+    granted: isNative
+      ? "اعلان‌های واقعی اندروید فعال است."
+      : "اعلان‌های مرورگر فعال است (تا وقتی برنامه باز است ارسال می‌شود).",
+    denied: "اجازهٔ اعلان داده نشده است.",
+    prompt: "هنوز برای اعلان اجازه گرفته نشده است.",
+    unsupported: "این دستگاه از اعلان پشتیبانی نمی‌کند.",
+  }[status];
+
   return (
     <div className="page-body">
       <div className="report-head">
         <div>
           <span className="pill purple">یادآوری‌ها</span>
           <h2>کمک‌های کوچک، قابل تنظیم</h2>
-          <p>هر اعلان را هر زمان خواستید خاموش کنید.</p>
+          <p>هر اعلان را هر زمان خواستید خاموش کنید. {statusLabel}</p>
         </div>
         <BellRing size={45} color="#88689a" />
       </div>
       <div className="panel reminder-list">
-        {[
-          ["breakfast", "یادآوری صبحانه", "زمان پیشنهادی صبحانه"],
-          ["lunch", "یادآوری ناهار", "زمان پیشنهادی ناهار"],
-          ["dinner", "یادآوری شام", "زمان پیشنهادی شام"],
-          ["water", "یادآوری آب", "یادآوری در طول روز"],
-          ["expiry", "نزدیک شدن انقضا", "مواد غذایی نزدیک به انقضا"],
-        ].map(([k, title, desc]) => (
-          <button className="reminder-row" key={k} onClick={() => toggle(k)}>
-            <div>
-              <b>{title}</b>
-              <small>{desc}</small>
-            </div>
-            <span className={reminders[k] ? "switch on" : "switch"}>
-              <i />
-            </span>
-          </button>
+        {REMINDER_ROWS.map(([k, title, desc]) => (
+          <div className="reminder-row" key={k}>
+            <button
+              type="button"
+              className="reminder-row-toggle"
+              onClick={() => toggle(k)}
+            >
+              <div>
+                <b>{title}</b>
+                <small>{desc}</small>
+              </div>
+              <span className={reminders[k] ? "switch on" : "switch"}>
+                <i />
+              </span>
+            </button>
+            {reminders[k] && (
+              <input
+                type="time"
+                className="reminder-time"
+                value={times[k] || DEFAULT_REMINDER_TIMES[k]}
+                onChange={(e) => changeTime(k, e.target.value)}
+                aria-label={`ساعت ${title}`}
+              />
+            )}
+          </div>
         ))}
-        <button className="primary" onClick={ask}>
-          <BellRing size={16} /> فعال‌سازی اعلان‌های مرورگر
+        <button className="primary" onClick={enableNotifications}>
+          <BellRing size={16} />
+          {status === "granted" ? "به‌روزرسانی اعلان‌ها" : "فعال‌سازی اعلان‌ها"}
         </button>
+        {!isNative && status === "granted" && (
+          <p className="reminder-note">
+            توجه: در نسخهٔ وب، اعلان‌ها فقط تا زمانی که این صفحه باز باشد ارسال
+            می‌شوند. نسخهٔ اندروید اعلان‌ها را حتی وقتی برنامه بسته است هم
+            ارسال می‌کند.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -549,17 +619,119 @@ export function ReportActions({ notify }) {
   );
 }
 export function HealthConnectCard({ notify }) {
+  const isNative = Capacitor.isNativePlatform();
+  const [checked, setChecked] = useState(false);
+  const [available, setAvailable] = useState(false);
+  const [granted, setGranted] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadSummary = async () => {
+    try {
+      const sum = await HealthConnect.readSummary({ days: 1 });
+      setSummary(sum);
+    } catch (e) {
+      notify(e?.message || "خواندن اطلاعات Health Connect ممکن نشد.");
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!isNative) {
+        if (alive) setChecked(true);
+        return;
+      }
+      try {
+        const av = await HealthConnect.isAvailable();
+        if (!alive) return;
+        setAvailable(!!av.available);
+        if (av.available) {
+          const g = await HealthConnect.hasPermissions();
+          if (!alive) return;
+          setGranted(!!g.granted);
+          if (g.granted) await loadSummary();
+        }
+      } finally {
+        if (alive) setChecked(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const connect = async () => {
+    setBusy(true);
+    try {
+      const av = await HealthConnect.isAvailable();
+      setAvailable(!!av.available);
+      if (!av.available) {
+        notify(
+          "Health Connect روی این دستگاه نصب یا در دسترس نیست؛ از Play Store نصبش کنید.",
+        );
+        return;
+      }
+      const res = await HealthConnect.requestPermissions();
+      setGranted(!!res.granted);
+      if (res.granted) {
+        notify("اتصال به Health Connect با رضایت شما برقرار شد.");
+        await loadSummary();
+      } else {
+        notify("اجازهٔ دسترسی به Health Connect داده نشد.");
+      }
+    } catch (e) {
+      notify(e?.message || "اتصال به Health Connect ممکن نشد.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="panel health-card">
       <HeartPulse size={23} />
       <div>
         <h3>Health Connect</h3>
-        <p>
-          اتصال به داده‌های سلامتی Android هنوز به این نسخه وصل نشده و در
-          به‌روزرسانی بعدی اضافه می‌شود؛ بدون رضایت صریح شما فعال نخواهد شد.
-        </p>
+        {!isNative ? (
+          <p>اتصال به Health Connect فقط در نسخهٔ اندروید این برنامه در دسترس است.</p>
+        ) : !checked ? (
+          <p>در حال بررسی وضعیت Health Connect…</p>
+        ) : !available ? (
+          <p>Health Connect روی این دستگاه نصب نیست یا پشتیبانی نمی‌شود.</p>
+        ) : granted ? (
+          <>
+            <p>اتصال با رضایت شما برقرار است؛ فقط دادهٔ زیر خوانده می‌شود.</p>
+            {summary && (
+              <ul className="health-summary">
+                <li>گام‌های امروز: {Math.round(summary.steps || 0)}</li>
+                <li>کالری سوزانده‌شده: {Math.round(summary.caloriesBurned || 0)}</li>
+                {summary.latestWeightKg != null && (
+                  <li>آخرین وزن ثبت‌شده: {summary.latestWeightKg} کیلوگرم</li>
+                )}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p>
+            در صورت تمایل و با رضایت صریح شما، اطلاعات گام، کالری و وزن از
+            Health Connect خوانده می‌شود.
+          </p>
+        )}
       </div>
-      <span className="soon-badge">به‌زودی</span>
+      {isNative && checked && available && granted && (
+        <button onClick={loadSummary} disabled={busy}>
+          <RefreshCw size={14} /> به‌روزرسانی
+        </button>
+      )}
+      {isNative && checked && available && !granted && (
+        <button onClick={connect} disabled={busy}>
+          {busy ? "در حال اتصال…" : "اتصال"}
+        </button>
+      )}
+      {!isNative && <span className="soon-badge">فقط اندروید</span>}
+      {isNative && checked && !available && (
+        <span className="soon-badge">نصب نشده</span>
+      )}
     </div>
   );
 }

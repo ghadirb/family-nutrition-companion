@@ -38,6 +38,12 @@ import {
   HealthConnectCard,
 } from "./advanced.jsx";
 import {
+  ensureServiceWorker,
+  startWebReminderLoop,
+  getNotificationStatus,
+  checkExpiryAndNotify,
+} from "./notifications.js";
+import {
   FREE_MEMBER_LIMIT,
   isPremiumActive,
   trialDaysLeft,
@@ -613,6 +619,20 @@ function App() {
     setToast(m);
     setTimeout(() => setToast(""), 2500);
   };
+  // اعلان‌های واقعی: روی وب سرویس‌ورکر را ثبت و حلقهٔ بررسی زمان یادآوری‌ها را
+  // راه‌اندازی می‌کنیم؛ همچنین در باز شدن برنامه یک بار موجودی نزدیک‌به‌انقضا
+  // را با دادهٔ واقعی خانواده بررسی می‌کنیم (روی اندروید هم چون WebView در
+  // پس‌زمینهٔ برنامه فعال است این حلقه اجرا می‌شود).
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  useEffect(() => {
+    ensureServiceWorker();
+    const stop = startWebReminderLoop(() => dataRef.current);
+    getNotificationStatus().then((status) => {
+      if (status === "granted") checkExpiryAndNotify(dataRef.current.inventory);
+    });
+    return stop;
+  }, []);
   const saveLog = (e) => {
     setData((d) => ({ ...d, logs: [{ ...e, id: Date.now() }, ...d.logs] }));
     setModal(null);

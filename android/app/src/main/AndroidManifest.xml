@@ -22,7 +22,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- در Android 14+، Health Connect برای نمایش لینک «دلیل درخواست مجوز»
+                 به کاربر، یک اکتیویتی با این intent-filter را باز می‌کند. همان
+                 صفحهٔ اصلی برنامه (بخش Health Connect) این توضیح را نشان می‌دهد. -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
         </activity>
+
+        <activity-alias
+            android:name=".HealthConnectPermissionsRationaleAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -35,7 +51,17 @@
         </provider>
     </application>
 
+    <!-- برای بررسی نصب بودن اپ Health Connect روی دستگاه -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Health Connect: فقط خواندن، فقط با رضایت صریح کاربر از طریق دکمهٔ «اتصال» -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
 </manifest>
