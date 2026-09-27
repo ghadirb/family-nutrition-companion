@@ -22,3 +22,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: deploy
+          secrets: |
+            AVALAI_API_KEY
+        env:
+          AVALAI_API_KEY: ${{ secrets.AVALAI_API_KEY }}
