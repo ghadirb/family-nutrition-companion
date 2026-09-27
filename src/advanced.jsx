@@ -497,7 +497,9 @@ export function CaptureCenter({ notify }) {
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "خطا در تبدیل صدا");
           setVoice(result.text || "");
-          notify("صدا با مدل AvalAI به متن تبدیل شد؛ قبل از ثبت بررسی کنید.");
+          notify(
+            `صدا با مدل ${result.model || "AvalAI"} به متن تبدیل شد؛ قبل از ثبت بررسی کنید.`,
+          );
         } catch (e) {
           notify(e.message);
         } finally {

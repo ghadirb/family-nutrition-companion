@@ -62,31 +62,57 @@ async function handle(request, event) {
       const incoming = await request.formData();
       const file = incoming.get("file");
       if (!file) return json({ error: "فایل صوتی ارسال نشده است." }, 400);
-      const body = new FormData();
-      body.append("file", file, file.name || "voice.webm");
-      body.append(
-        "model",
-        env.AVALAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe",
-      );
-      body.append("language", "fa");
-      const response = await fetch(
-        `${env.AVALAI_BASE_URL || "https://api.avalai.ir/v1"}/audio/transcriptions`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${env.AVALAI_API_KEY}` },
-          body,
-        },
-      );
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok)
-        return json(
-          { error: result.error?.message || `AvalAI HTTP ${response.status}` },
-          response.status,
+      const fileBytes = await file.arrayBuffer();
+      const fileName = file.name || "voice.webm";
+      const fileType = file.type || "audio/webm";
+
+      // ترتیب مدل‌های آنلاین AvalAI برای تبدیل صوت به متن. اگر مدل اول در
+      // دسترس نبود یا خطا داد، خودکار مدل بعدی امتحان می‌شود تا ضبط صدا
+      // همیشه جواب بدهد.
+      const candidateModels = [
+        env.AVALAI_TRANSCRIBE_MODEL,
+        "gpt-4o-mini-transcribe",
+        "gpt-4o-transcribe",
+        "whisper-1",
+      ].filter((m, i, arr) => m && arr.indexOf(m) === i);
+
+      let lastError = "";
+      for (const model of candidateModels) {
+        const body = new FormData();
+        body.append(
+          "file",
+          new File([fileBytes], fileName, { type: fileType }),
         );
-      return json({
-        text: result.text || result.transcript || "",
-        model: env.AVALAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe",
-      });
+        body.append("model", model);
+        body.append("language", "fa");
+        try {
+          const response = await fetch(
+            `${env.AVALAI_BASE_URL || "https://api.avalai.ir/v1"}/audio/transcriptions`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${env.AVALAI_API_KEY}` },
+              body,
+            },
+          );
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            lastError = result.error?.message || `AvalAI HTTP ${response.status}`;
+            continue;
+          }
+          const text = result.text || result.transcript || "";
+          if (!text) {
+            lastError = "پاسخ خالی از مدل تبدیل صوت.";
+            continue;
+          }
+          return json({ text, model });
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+      return json(
+        { error: lastError || "هیچ‌یک از مدل‌های تبدیل صوت پاسخ ندادند." },
+        502,
+      );
     } catch (error) {
       return json({ error: error.message }, 500);
     }
