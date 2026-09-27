@@ -1,4 +1,4 @@
-// Service Worker سبک «تغذیه‌یار خانواده».
+// Service Worker سبک «تندرسا».
 // فقط برای فعال‌سازی واقعی اعلان‌های مرورگر (registration.showNotification)
 // استفاده می‌شود؛ فعلاً کش یا Push سرور ندارد.
 

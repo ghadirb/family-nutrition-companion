@@ -711,7 +711,7 @@ function App() {
           encoding: "utf8",
         });
         await Share.share({
-          title: "نسخه پشتیبان تغذیه‌یار خانواده",
+          title: "نسخه پشتیبان تندرسا",
           text: fileName,
           url: uri,
           dialogTitle: "ذخیره یا اشتراک‌گذاری نسخه پشتیبان",
@@ -756,8 +756,8 @@ function App() {
         <div className="brand">
           <div className="brand-mark">✦</div>
           <div>
-            <strong>تغذیه‌یار</strong>
-            <span>خانواده</span>
+            <strong>تندرسا</strong>
+            <span>دستیار هوشمند تغذیه و سلامت خانواده</span>
           </div>
         </div>
         <button className="family-switch" onClick={() => setModal("family")}>
