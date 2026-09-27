@@ -1,5 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import {
   LayoutDashboard,
   Users,
@@ -482,6 +486,32 @@ function isoDaysAgo(n) {
   d.setDate(d.getDate() - n);
   return d.toISOString();
 }
+// Real logging streak: number of consecutive days, counting back from today,
+// that have at least one log entry. Replaces the previous hardcoded "۶ روز".
+function loggingStreak(logs) {
+  const loggedDays = new Set((logs || []).map((l) => (l.date || "").slice(0, 10)));
+  let streak = 0;
+  for (let i = 0; i < 3650; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    if (!loggedDays.has(d.toISOString().slice(0, 10))) break;
+    streak++;
+  }
+  return streak;
+}
+// Which of the last 7 days (ش ی د س چ پ ج = شنبه..جمعه) had at least one log.
+function weekLogMap(logs) {
+  const loggedDays = new Set((logs || []).map((l) => (l.date || "").slice(0, 10)));
+  const map = Array(7).fill(false);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    if (loggedDays.has(d.toISOString().slice(0, 10))) {
+      map[(d.getDay() + 1) % 7] = true;
+    }
+  }
+  return map;
+}
 function relativeDate(iso) {
   if (!iso) return "";
   const d = new Date(iso),
@@ -520,7 +550,8 @@ function norm(s) {
 }
 
 function App() {
-  const [tab, setTab] = useState("home"),
+  const [tab, _setTab] = useState("home"),
+    [tabStack, setTabStack] = useState([]),
     [data, setData] = usePersistedState("nutrition-data", seed),
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
@@ -529,9 +560,55 @@ function App() {
     [collapsed, setCollapsed] = useState(
       () => localStorage.getItem("sidebar-collapsed") === "1",
     );
+  const setTab = (id) => {
+    _setTab((cur) => {
+      if (cur !== id) setTabStack((st) => [...st, cur]);
+      return id;
+    });
+  };
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+  // Hardware back button (Android): close modals/details first, then step
+  // back through visited tabs, and only exit the app from the dashboard
+  // with nothing else open. Without this, Capacitor's default behaviour
+  // exits the app immediately because tab/modal changes never touch the
+  // WebView history.
+  const backStateRef = useRef();
+  backStateRef.current = { modal, selected, tab, tabStack };
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let lastBackAt = 0;
+    const listenerPromise = CapApp.addListener("backButton", () => {
+      const { modal, selected, tab, tabStack } = backStateRef.current;
+      if (modal) {
+        setModal(null);
+        return;
+      }
+      if (selected) {
+        setSelected(null);
+        return;
+      }
+      if (tab !== "home") {
+        setTabStack((st) => {
+          const prev = st.length ? st[st.length - 1] : "home";
+          _setTab(prev);
+          return st.slice(0, -1);
+        });
+        return;
+      }
+      const now = Date.now();
+      if (now - lastBackAt < 2000) {
+        CapApp.exitApp();
+      } else {
+        lastBackAt = now;
+        notify("برای خروج، دوباره دکمه برگشت را بزنید");
+      }
+    });
+    return () => {
+      listenerPromise.then((h) => h.remove());
+    };
+  }, []);
   const notify = (m) => {
     setToast(m);
     setTimeout(() => setToast(""), 2500);
@@ -597,16 +674,41 @@ function App() {
     setSelected(null);
     notify("عضو حذف شد.");
   };
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      }),
+  const exportData = async () => {
+    const json = JSON.stringify(data, null, 2);
+    const fileName = `nutrition-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    if (Capacitor.isNativePlatform()) {
+      // A plain <a download> click is silently swallowed by the Android
+      // WebView, which is why the old flow said "دانلود شد" with no real
+      // file anywhere. Instead we write the file to app storage and open
+      // the native share/save sheet so the user sees exactly which file it
+      // is and picks where it goes (Files, Drive, Bluetooth, ...).
+      try {
+        const { uri } = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Cache,
+          encoding: "utf8",
+        });
+        await Share.share({
+          title: "نسخه پشتیبان تغذیه‌یار خانواده",
+          text: fileName,
+          url: uri,
+          dialogTitle: "ذخیره یا اشتراک‌گذاری نسخه پشتیبان",
+        });
+        notify(`نسخه پشتیبان ساخته شد: ${fileName}`);
+      } catch (err) {
+        notify("ساخت نسخه پشتیبان با خطا مواجه شد.");
+      }
+      return;
+    }
+    const blob = new Blob([json], { type: "application/json" }),
       a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "nutrition-backup.json";
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(a.href);
-    notify("نسخه پشتیبان دانلود شد.");
+    notify(`نسخه پشتیبان دانلود شد: ${fileName}`);
   };
   const importData = (file) => {
     const r = new FileReader();
@@ -664,6 +766,15 @@ function App() {
               <span>{label}</span>
             </button>
           ))}
+          {/* Always-visible entry point for settings/backup/family-name.
+              Unlike .family-switch and .sidebar-bottom, this button lives
+              inside <nav> so it is NOT hidden by the mobile CSS rule that
+              turns the sidebar into a bottom bar, keeping it reachable on
+              phones where the sidebar options used to disappear. */}
+          <button onClick={() => setModal("backup")} title="تنظیمات">
+            <Settings2 size={19} />
+            <span>تنظیمات</span>
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="tip">
@@ -825,6 +936,7 @@ function App() {
           exportData={exportData}
           importData={importData}
           startTrial={startTrial}
+          openFamily={() => setModal("family")}
           premiumOn={() => {
             setData((d) => ({ ...d, premium: true }));
             notify("حالت Premium فعال شد (نسخه نمایشی؛ اتصال پرداخت واقعی در مرحله بعد).");
@@ -853,6 +965,8 @@ function App() {
 
 function Dashboard({ data, setTab, openQuick, select }) {
   const meals = data.logs.filter((l) => l.type === "meal").length;
+  const streak = loggingStreak(data.logs);
+  const weekMap = weekLogMap(data.logs);
   return (
     <div className="page-body">
       <section className="hero-grid">
@@ -877,13 +991,13 @@ function Dashboard({ data, setTab, openQuick, select }) {
             <span>پیوستگی ثبت</span>
           </div>
           <div className="streak-number">
-            ۶ <small>روز</small>
+            {streak} <small>روز</small>
           </div>
           <div className="streak-days">
             {["ش", "ی", "د", "س", "چ", "پ", "ج"].map((d, i) => (
-              <div key={d} className={i < 6 ? "done" : ""}>
+              <div key={d} className={weekMap[i] ? "done" : ""}>
                 <span>{d}</span>
-                <b>{i < 6 ? "✓" : ""}</b>
+                <b>{weekMap[i] ? "✓" : ""}</b>
               </div>
             ))}
           </div>
@@ -1914,7 +2028,7 @@ function FamilyModal({ data, close, save, openWizard }) {
     </div>
   );
 }
-function BackupModal({ close, exportData, importData, data, premiumOn, startTrial }) {
+function BackupModal({ close, exportData, importData, data, premiumOn, startTrial, openFamily }) {
   const ref = React.useRef();
   const active = isPremiumActive(data);
   const trialing = active && !data.premium;
@@ -1925,6 +2039,14 @@ function BackupModal({ close, exportData, importData, data, premiumOn, startTria
           <X size={18} />
         </button>
         <h2>پشتیبان و حساب</h2>
+        <button className="family-switch" onClick={openFamily} style={{ width: "100%", marginBottom: 14 }}>
+          <div className="family-avatar">خ</div>
+          <div>
+            <b>{data.familyName}</b>
+            <small>ویرایش نام خانواده</small>
+          </div>
+          <ChevronLeft size={16} />
+        </button>
         <p className="modal-sub">
           برای انتقال داده بین دستگاه‌ها از Export/Import استفاده کنید.
         </p>
@@ -1933,14 +2055,21 @@ function BackupModal({ close, exportData, importData, data, premiumOn, startTria
             <Download size={17} /> دریافت Backup
           </button>
           <button onClick={() => ref.current.click()}>
-            <Upload size={17} /> بازیابی Backup
+            <Upload size={17} /> بازیابی از فایل
           </button>
+          <p className="modal-sub" style={{ margin: "-6px 0 0", fontSize: 12 }}>
+            «بازیابی از فایل» پنجرهٔ انتخاب فایل را باز می‌کند؛ فایل Backup
+            (json.) را انتخاب کنید تا اطلاعات بازگردانده شود.
+          </p>
           <input
             ref={ref}
             type="file"
             accept="application/json"
             hidden
-            onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
+            onChange={(e) => {
+              if (e.target.files[0]) importData(e.target.files[0]);
+              e.target.value = "";
+            }}
           />
         </div>
         <div className="premium-box">
