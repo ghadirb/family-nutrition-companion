@@ -82,7 +82,7 @@ class HealthConnectPlugin : Plugin() {
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         if (sdkStatus() != HealthConnectClient.SDK_AVAILABLE) {
             call.reject("Health Connect روی این دستگاه در دسترس نیست")
             return
