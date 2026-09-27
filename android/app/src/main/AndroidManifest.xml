@@ -60,6 +60,14 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- ثبت صوتی (getUserMedia داخل WebView برای دکمهٔ «AvalAI Transcribe») -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- ثبت عکس غذا -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Health Connect: فقط خواندن، فقط با رضایت صریح کاربر از طریق دکمهٔ «اتصال» -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />

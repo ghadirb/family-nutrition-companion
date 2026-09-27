@@ -442,6 +442,10 @@ function parseVoiceText(text) {
 }
 
 export function CaptureCenter({ notify }) {
+  const isNative =
+    typeof Capacitor !== "undefined" && Capacitor.isNativePlatform
+      ? Capacitor.isNativePlatform()
+      : false;
   const [voice, setVoice] = useState(""),
     [photo, setPhoto] = useState(""),
     [recording, setRecording] = useState(false),
@@ -502,8 +506,18 @@ export function CaptureCenter({ notify }) {
       };
       r.start();
       setRecording(true);
-    } catch {
-      notify("دسترسی به میکروفون داده نشد.");
+    } catch (e) {
+      if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
+        notify(
+          isNative
+            ? "دسترسی به میکروفون رد شده. از تنظیمات گوشی → برنامه‌ها → تندرسا → مجوزها، دسترسی میکروفون را فعال کنید و دوباره امتحان کنید."
+            : "دسترسی به میکروفون رد شده؛ از تنظیمات مرورگر اجازه دهید.",
+        );
+      } else if (e?.name === "NotFoundError") {
+        notify("میکروفونی روی این دستگاه پیدا نشد.");
+      } else {
+        notify("دسترسی به میکروفون داده نشد.");
+      }
     }
   };
   return (
@@ -522,11 +536,13 @@ export function CaptureCenter({ notify }) {
           <h3>ثبت صوتی</h3>
           <p>مثلاً بگویید: «علی، موز، ۱ عدد» یا «مریم، یک لیوان شیر خورد».</p>
           <div className="capture-buttons">
-            <button className="primary" onClick={listen}>
-              <Mic size={16} /> مرورگر
-            </button>
+            {!isNative && (
+              <button className="primary" onClick={listen}>
+                <Mic size={16} /> مرورگر
+              </button>
+            )}
             <button
-              className={recording ? "danger" : "secondary"}
+              className={recording ? "danger" : isNative ? "primary" : "secondary"}
               onClick={record}
               disabled={busy}
             >
