@@ -64,7 +64,7 @@ jobs:
           retention-days: 14
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -101,11 +101,14 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore.jks
 
-      - name: Derive version from tag
+      - name: Derive version
         id: ver
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          echo "versionName=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "versionName=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "versionName=0.0.${{ github.run_number }}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
           echo "versionCode=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Build signed release APK
@@ -130,7 +133,16 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk \
              out/family-nutrition-companion-v${{ steps.ver.outputs.versionName }}.apk
 
+      - name: Upload signed release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-nutrition-companion-release-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
