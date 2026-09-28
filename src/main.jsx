@@ -282,222 +282,28 @@ const foodBank = [
   { id: 38, name: "چای", aliases: "چایی", group: "نوشیدنی", icon: "🍵" },
   { id: 39, name: "شیر", aliases: "شیر گاو", group: "نوشیدنی", icon: "🥛" },
 ];
+// هفتهٔ خالی (شنبه تا جمعه) با تاریخ‌های واقعی همین هفته؛ برنامه از صفر شروع می‌شود.
+function emptyWeek() {
+  const names = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"];
+  const start = new Date();
+  start.setHours(12, 0, 0, 0);
+  start.setDate(start.getDate() - ((start.getDay() + 1) % 7)); // آخرین شنبه
+  return names.map((day, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return {
+      id: i + 1,
+      day,
+      date: d.toLocaleDateString("fa-IR", { day: "numeric", month: "long" }),
+      meals: [],
+    };
+  });
+}
 const seed = {
-  familyName: "خانواده کریمی",
-  premium: false,
-  members: [
-    {
-      id: 1,
-      name: "مریم",
-      role: "مادر",
-      age: 37,
-      gender: "زن",
-      height: 165,
-      weight: 68,
-      activity: "متوسط",
-      goal: "حفظ وزن",
-      likes: "سبزیجات، ماهی",
-      dislikes: "نوشابه",
-      notes: "",
-      color: "#f39a7a",
-      initials: "م",
-    },
-    {
-      id: 2,
-      name: "امیر",
-      role: "پدر",
-      age: 40,
-      gender: "مرد",
-      height: 180,
-      weight: 84,
-      activity: "زیاد",
-      goal: "افزایش انرژی",
-      likes: "کباب، برنج",
-      dislikes: "",
-      notes: "",
-      color: "#6d8bd9",
-      initials: "ا",
-    },
-    {
-      id: 3,
-      name: "علی",
-      role: "کودک",
-      age: 9,
-      gender: "پسر",
-      height: 132,
-      weight: 31,
-      activity: "زیاد",
-      goal: "رشد سالم",
-      likes: "ماکارونی، سیب",
-      dislikes: "سبزی پخته",
-      notes: "",
-      color: "#f2c94c",
-      initials: "ع",
-    },
-    {
-      id: 4,
-      name: "سارا",
-      role: "نوجوان",
-      age: 15,
-      gender: "دختر",
-      height: 160,
-      weight: 52,
-      activity: "متوسط",
-      goal: "حفظ وزن",
-      likes: "سالاد، مرغ",
-      dislikes: "",
-      notes: "",
-      color: "#8fc8a7",
-      initials: "س",
-    },
-  ],
-  plan: [
-    {
-      id: 1,
-      day: "شنبه",
-      date: "۲۸ شهریور",
-      meals: [
-        { id: 11, time: "صبحانه", title: "نان، پنیر و گردو", icon: "🥖" },
-        { id: 12, time: "ناهار", title: "قورمه‌سبزی با برنج", icon: "🍲" },
-        { id: 13, time: "شام", title: "کوکو سبزی و ماست", icon: "🥗" },
-      ],
-    },
-    {
-      id: 2,
-      day: "یکشنبه",
-      date: "۲۹ شهریور",
-      meals: [
-        { id: 21, time: "صبحانه", title: "املت گوجه", icon: "🍳" },
-        { id: 22, time: "ناهار", title: "عدس‌پلو با کشمش", icon: "🍚" },
-        { id: 23, time: "شام", title: "سوپ جو و سبزیجات", icon: "🥣" },
-      ],
-    },
-    {
-      id: 3,
-      day: "دوشنبه",
-      date: "۳۰ شهریور",
-      meals: [
-        { id: 31, time: "صبحانه", title: "شیر و خرما", icon: "🥛" },
-        { id: 32, time: "ناهار", title: "زرشک‌پلو با مرغ", icon: "🍗" },
-        { id: 33, time: "شام", title: "سالاد شیرازی و تخم‌مرغ", icon: "🥗" },
-      ],
-    },
-    {
-      id: 4,
-      day: "سه‌شنبه",
-      date: "۳۱ شهریور",
-      meals: [
-        { id: 41, time: "صبحانه", title: "پنیر و گردو و خیار", icon: "🧀" },
-        { id: 42, time: "ناهار", title: "فسنجان با برنج", icon: "🍯" },
-        { id: 43, time: "شام", title: "آش رشته", icon: "🍜" },
-      ],
-    },
-    {
-      id: 5,
-      day: "چهارشنبه",
-      date: "۱ مهر",
-      meals: [
-        { id: 51, time: "صبحانه", title: "تخم‌مرغ آب‌پز و نان", icon: "🥚" },
-        { id: 52, time: "ناهار", title: "قیمه با برنج", icon: "🍛" },
-        { id: 53, time: "شام", title: "کوکو سیب‌زمینی و ماست", icon: "🥔" },
-      ],
-    },
-    {
-      id: 6,
-      day: "پنجشنبه",
-      date: "۲ مهر",
-      meals: [
-        { id: 61, time: "صبحانه", title: "نان و عسل و گردو", icon: "🍯" },
-        { id: 62, time: "ناهار", title: "جوجه‌کباب با برنج", icon: "🍢" },
-        { id: 63, time: "شام", title: "آبگوشت", icon: "🍲" },
-      ],
-    },
-    {
-      id: 7,
-      day: "جمعه",
-      date: "۳ مهر",
-      meals: [
-        { id: 71, time: "صبحانه", title: "نیمرو و گوجه", icon: "🍳" },
-        { id: 72, time: "ناهار", title: "کباب کوبیده با برنج", icon: "🍢" },
-        { id: 73, time: "شام", title: "سبزی‌پلو و ماهی", icon: "🐟" },
-      ],
-    },
-  ],
-  logs: [
-    {
-      id: 1,
-      type: "meal",
-      title: "قورمه‌سبزی با برنج",
-      meal: "ناهار",
-      date: isoDaysAgo(0),
-      time: "۱۳:۲۰",
-      entries: [
-        { member: "مریم", status: "خورد", amount: "۱ سهم" },
-        { member: "امیر", status: "خورد", amount: "۱.۵ سهم" },
-        { member: "علی", status: "خورد", amount: "نصف سهم" },
-        { member: "سارا", status: "نخورد", amount: null },
-      ],
-      members: ["مریم", "امیر", "علی", "سارا"],
-      icon: "🍲",
-      tag: "وعده اصلی",
-    },
-    {
-      id: 2,
-      type: "snack",
-      title: "سیب و گردو",
-      meal: "میان‌وعده",
-      date: isoDaysAgo(0),
-      time: "۱۶:۱۰",
-      entries: [{ member: "علی", status: "خورد", amount: "متوسط" }],
-      members: ["علی"],
-      icon: "🍎",
-      tag: "میان‌وعده",
-    },
-    {
-      id: 3,
-      type: "drink",
-      title: "آب",
-      meal: "نوشیدنی",
-      date: isoDaysAgo(0),
-      time: "۱۱:۴۵",
-      entries: [
-        { member: "مریم", status: "خورد", amount: "۱ لیوان" },
-        { member: "امیر", status: "خورد", amount: "۱ لیوان" },
-      ],
-      members: ["مریم", "امیر"],
-      icon: "💧",
-      tag: "نوشیدنی",
-    },
-    {
-      id: 4,
-      type: "snack",
-      title: "بیسکویت",
-      meal: "تنقلات",
-      date: isoDaysAgo(1),
-      time: "۱۸:۳۰",
-      entries: [{ member: "سارا", status: "خورد", amount: "کم" }],
-      members: ["سارا"],
-      icon: "🍪",
-      tag: "تنقلات",
-    },
-    {
-      id: 5,
-      type: "meal",
-      title: "زرشک‌پلو با مرغ",
-      meal: "ناهار",
-      date: isoDaysAgo(6),
-      time: "۱۳:۱۰",
-      entries: [
-        { member: "مریم", status: "خورد", amount: "۱ سهم" },
-        { member: "امیر", status: "خورد", amount: "۱.۵ سهم" },
-        { member: "علی", status: "نخورد", amount: null },
-        { member: "سارا", status: "خورد", amount: "۱ سهم" },
-      ],
-      members: ["مریم", "امیر", "علی", "سارا"],
-      icon: "🍗",
-      tag: "وعده اصلی",
-    },
-  ],
+  familyName: "",
+  members: [],
+  plan: emptyWeek(),
+  logs: [],
 };
 function isoDaysAgo(n) {
   const d = new Date();
@@ -587,6 +393,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+  // اولین اجرا: خانواده‌ای وجود ندارد؛ ویزارد «ایجاد خانواده» یک‌بار خودکار باز می‌شود.
+  useEffect(() => {
+    if (!data.familyName && data.members.length === 0 && !data.welcomeShown) {
+      setModal("familyWizard");
+      setData((d) => ({ ...d, welcomeShown: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // شناسهٔ نصب: رسیدهای خرید به آن گره می‌خورند و همراه Backup منتقل می‌شود.
   useEffect(() => {
     if (!data.installId) setData((d) => ({ ...d, installId: newInstallId() }));
@@ -744,7 +558,7 @@ function App() {
       familyName,
       members,
       familyCreated: true,
-      plan: [],
+      plan: emptyWeek(),
       logs: [],
       shopping: [],
       inventory: [],
@@ -841,7 +655,7 @@ function App() {
         <button className="family-switch" onClick={() => setModal("family")}>
           <div className="family-avatar">خ</div>
           <div>
-            <b>{data.familyName}</b>
+            <b>{data.familyName || "خانوادهٔ من"}</b>
             <small>{data.members.length} عضو فعال</small>
           </div>
           <ChevronLeft size={16} />
@@ -906,11 +720,11 @@ function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">
-              {data.familyName} · شنبه، ۲۸ شهریور ۱۴۰۴
+              {data.familyName || "تندرسا"} · {new Date().toLocaleDateString("fa-IR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
             <h1>
               {tab === "home"
-                ? `صبح بخیر، ${data.familyName} 🌿`
+                ? `سلام${data.familyName ? `، ${data.familyName}` : ""} 🌿`
                 : tab === "members"
                   ? "اعضای خانواده"
                   : tab === "plan"
@@ -2149,7 +1963,7 @@ function BackupModal({ close, exportData, importData, data, store, buying, buy, 
         <button className="family-switch" onClick={openFamily} style={{ width: "100%", marginBottom: 14 }}>
           <div className="family-avatar">خ</div>
           <div>
-            <b>{data.familyName}</b>
+            <b>{data.familyName || "خانوادهٔ من"}</b>
             <small>ویرایش نام خانواده</small>
           </div>
           <ChevronLeft size={16} />
