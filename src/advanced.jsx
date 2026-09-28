@@ -452,20 +452,45 @@ export function ReminderCenter({ data, setData, notify }) {
   );
 }
 
-function parseVoiceText(text) {
-  const match = text.match(
-    /(.+?)[،,؛]\s*(.+?)(?:\s+و\s+(.+?))?\s*(\d+(?:[./]\d+)?)?\s*(عدد|کیلو|گرم|لیوان|سهم|قاشق)?/i,
+function parseVoiceText(text, memberNames = []) {
+  const clean = (text || "").replace(/[.،,؛!؟?]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  const member = memberNames.find((n) => n && clean.startsWith(n)) || "";
+  let rest = member ? clean.slice(member.length).trim() : clean;
+  if (!member) {
+    const first = clean.split(" ")[0];
+    if (clean.split(" ").length > 1) {
+      rest = clean.split(" ").slice(1).join(" ");
+      return buildParsed(first, rest);
+    }
+  }
+  return buildParsed(member || "", rest);
+}
+
+const WORD_NUMBERS = { یک: "1", دو: "2", سه: "3", چهار: "4", پنج: "5", نصف: "0.5" };
+function buildParsed(member, rest) {
+  rest = rest
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/\s+(خورد|خوردم|خوردن|نوشید|نوشیدم)$/, "");
+  // مقدار در انتها: «موز ۱ عدد» -> «۱ عدد موز»
+  const tail = rest.match(/^(.+?)\s+(\d+(?:[./]\d+)?)\s*(عدد|کیلو|گرم|لیوان|سهم|قاشق|بشقاب|کاسه)?$/);
+  if (tail) rest = `${tail[2]} ${tail[3] || "عدد"} ${tail[1]}`;
+  const m = rest.match(
+    /^(?:(\d+(?:[./]\d+)?|یک|دو|سه|چهار|پنج|نصف)\s+)?(?:(عدد|کیلو|گرم|لیوان|سهم|قاشق|بشقاب|کاسه)\s+)?(.+)$/,
   );
-  if (!match) return null;
+  if (!m) return null;
+  const qty = m[1] ? WORD_NUMBERS[m[1]] || m[1] : "1";
+  const unit = m[2] || "عدد";
+  const parts = m[3].split(/\s+و\s+/);
   return {
-    member: match[1].trim(),
-    item: match[2].trim(),
-    secondItem: match[3]?.trim() || "",
-    quantity: match[4] ? `${match[4]} ${match[5] || "واحد"}` : "۱ واحد",
+    member: member || "نامشخص",
+    item: parts[0].trim(),
+    secondItem: parts[1]?.trim() || "",
+    quantity: `${qty} ${unit}`,
   };
 }
 
-export function CaptureCenter({ notify }) {
+export function CaptureCenter({ notify, data, setData }) {
   const isNative =
     typeof Capacitor !== "undefined" && Capacitor.isNativePlatform
       ? Capacitor.isNativePlatform()
@@ -479,7 +504,7 @@ export function CaptureCenter({ notify }) {
   const chunks = useRef([]);
   const updateVoice = (text) => {
     setVoice(text);
-    setParsed(parseVoiceText(text));
+    setParsed(parseVoiceText(text, (data?.members || []).map((m) => m.name)));
   };
   const listen = () => {
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -504,7 +529,7 @@ export function CaptureCenter({ notify }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "خطا در تبدیل صدا");
-      setVoice(result.text || "");
+      updateVoice(result.text || "");
       notify(
         `صدا با مدل ${result.model || "AvalAI"} به متن تبدیل شد؛ قبل از ثبت بررسی کنید.`,
       );
@@ -633,13 +658,41 @@ export function CaptureCenter({ notify }) {
                 </div>
               )}
               <button
-                onClick={() =>
-                  notify(
-                    parsed
-                      ? "اطلاعات صوتی ساختاربندی شد؛ برای ثبت نهایی از ثبت سریع استفاده کنید."
-                      : "متن صوتی برای بررسی آماده است.",
-                  )
-                }
+                onClick={() => {
+                  if (!parsed || !parsed.item) {
+                    notify("متن قابل تشخیص نیست؛ متن را ویرایش کنید (مثلاً: علی یک موز).");
+                    return;
+                  }
+                  const names = (data?.members || []).map((m) => m.name);
+                  const now = new Date();
+                  const item = parsed.secondItem
+                    ? `${parsed.item} و ${parsed.secondItem}`
+                    : parsed.item;
+                  const drink = /(شیر|آب|چای|آبمیوه|دوغ|نوشابه|قهوه)/.test(item);
+                  setData((d) => ({
+                    ...d,
+                    logs: [
+                      {
+                        id: Date.now(),
+                        type: drink ? "drink" : "snack",
+                        title: item,
+                        meal: "میان‌وعده",
+                        date: now.toISOString(),
+                        time: now.toTimeString().slice(0, 5),
+                        entries: [
+                          { member: parsed.member, status: "خورد", amount: parsed.quantity },
+                        ],
+                        members: names.includes(parsed.member) ? [parsed.member] : [],
+                        icon: drink ? "💧" : "🍪",
+                        tag: drink ? "نوشیدنی" : "تنقلات",
+                      },
+                      ...(d.logs || []),
+                    ],
+                  }));
+                  notify(`ثبت شد: ${parsed.member} — ${item} (${parsed.quantity})`);
+                  setVoice("");
+                  setParsed(null);
+                }}
               >
                 تأیید برای ثبت
               </button>

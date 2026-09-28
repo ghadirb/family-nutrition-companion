@@ -919,7 +919,7 @@ function App() {
               desc="تبدیل صدا به متن با AvalAI و تشخیص عکس غذا، امکانات Premium هستند."
               onUpgrade={() => setModal("backup")}
             >
-              <CaptureCenter notify={notify} />
+              <CaptureCenter notify={notify} data={data} setData={setData} />
             </PremiumGate>
             <HealthConnectCard notify={notify} />
           </div>
