@@ -770,7 +770,9 @@ function App() {
         )}{" "}
         {tab === "reports" && (
           <div className="page-body">
-            <Reports data={data} openUpgrade={() => setModal("backup")} />
+            <div id="report-print-root">
+              <Reports data={data} openUpgrade={() => setModal("backup")} />
+            </div>
             <PremiumGate
               data={data}
               title="گزارش PDF"
