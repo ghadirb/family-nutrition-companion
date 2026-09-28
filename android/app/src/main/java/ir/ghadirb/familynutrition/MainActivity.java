@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(HealthConnectPlugin.class);
     registerPlugin(VoiceRecorderPlugin.class);
     registerPlugin(MyketBillingPlugin.class);
+    registerPlugin(PrintHtmlPlugin.class);
     super.onCreate(savedInstanceState);
     // هیچ مجوزی در شروع برنامه درخواست نمی‌شود؛ هر مجوز در لحظهٔ استفاده گرفته می‌شود:
     // میکروفون توسط VoiceRecorder هنگام زدن دکمهٔ ضبط، دوربین هنگام انتخاب عکس،

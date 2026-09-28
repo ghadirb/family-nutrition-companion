@@ -726,21 +726,75 @@ export function CaptureCenter({ notify, data, setData }) {
   );
 }
 
+const PrintHtml = registerPlugin("PrintHtml");
+
+// HTML مستقل و چاپ‌پذیر از همان چیزی که کاربر در بخش گزارش‌ها می‌بیند.
+function buildReportHtml(root, title) {
+  const clone = root.cloneNode(true);
+  // مقدار انتخاب‌شدهٔ select ها در کپی حفظ شود
+  const src = root.querySelectorAll("select");
+  clone.querySelectorAll("select").forEach((sel, i) => {
+    [...sel.options].forEach((o, j) => {
+      if (src[i]?.selectedIndex === j) o.setAttribute("selected", "");
+    });
+  });
+  let css = "";
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      css += Array.from(sheet.cssRules).map((r) => r.cssText).join("\n");
+    } catch {
+      /* استایل‌شیت خارجی */
+    }
+  }
+  const stamp = new Date().toLocaleDateString("fa-IR", { year: "numeric", month: "long", day: "numeric" });
+  return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title><style>${css}
+body{background:#fff;padding:16px;direction:rtl}
+button:not(.selected),.close,.icon-btn{display:none!important}
+button.selected{background:none;border:0;padding:0 6px 0 0;font-weight:700}
+.page-body{max-width:none}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style></head><body><h2 style="margin:0 0 4px">${title}</h2>
+<p style="margin:0 0 14px;color:#84918b;font-size:12px">تاریخ تهیه: ${stamp}</p>${clone.outerHTML}</body></html>`;
+}
+
 export function ReportActions({ notify }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    const root = document.getElementById("report-print-root");
+    if (!Capacitor.isNativePlatform()) {
+      window.print();
+      return;
+    }
+    if (!root) {
+      notify("گزارشی برای چاپ پیدا نشد.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await PrintHtml.print({
+        html: buildReportHtml(root, "گزارش تغذیه خانواده — تندرسا"),
+        title: "گزارش تغذیه خانواده",
+      });
+    } catch (e) {
+      notify(`باز کردن پنجرهٔ چاپ ناموفق بود: ${e?.message || e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="panel report-actions">
       <div>
         <h3>خروجی گزارش</h3>
-        <p>برای ذخیره PDF، گزینه چاپ مرورگر را روی Save as PDF بگذارید.</p>
+        <p>
+          پس از زدن دکمه، پنجرهٔ چاپ اندروید باز می‌شود؛ بالای آن «ذخیره به‌صورت
+          PDF» را انتخاب و فایل را ذخیره یا ارسال کنید.
+        </p>
       </div>
-      <button
-        className="primary"
-        onClick={() => {
-          window.print();
-          notify("پنجره چاپ/PDF باز شد.");
-        }}
-      >
-        <Printer size={16} /> چاپ / PDF
+      <button className="primary" onClick={run} disabled={busy}>
+        <Printer size={16} /> {busy ? "در حال آماده‌سازی..." : "چاپ / PDF"}
       </button>
     </div>
   );

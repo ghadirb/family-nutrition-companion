@@ -91,3 +91,5 @@
 .plan-card small{font-size:9px;color:#958874}
 .plan-card span{font-size:11px;font-weight:700;color:#4e8861}
 .plan-card:disabled{opacity:.55}
+
+@media print{.sidebar,.toast,.report-actions,.lock-card,.modal-backdrop,.top-actions,.sidebar-toggle{display:none!important}.content{margin:0!important;padding:0!important}}
