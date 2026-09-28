@@ -42,6 +42,7 @@ import {
   startWebReminderLoop,
   getNotificationStatus,
   checkExpiryAndNotify,
+  schedulePremiumExpiryReminders,
 } from "./notifications.js";
 import {
   FREE_MEMBER_LIMIT,
@@ -58,6 +59,7 @@ import {
 } from "./features.jsx";
 import {
   PLANS,
+  premiumUntil,
   billingSupported,
   buyPlan,
   filterValidReceipts,
@@ -617,6 +619,16 @@ function App() {
     // فقط یک‌بار به‌ازای هر installId اجرا شود
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.installId]);
+  // یادآوری پایان Premium + هشدار داخل برنامه هنگام باز شدن (۳ روز یا کمتر)
+  const paidUntil = premiumUntil(data);
+  useEffect(() => {
+    schedulePremiumExpiryReminders(paidUntil);
+    const left = paidUntil - Date.now();
+    if (left > 0 && left <= 3 * 86400000) {
+      notify(`Premium شما ${premiumDaysLeft(data)} روز دیگر تمام می‌شود؛ از «پشتیبان و حساب» تمدید کنید.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidUntil]);
   const buy = async (sku) => {
     if (buying) return;
     setBuying(sku);
