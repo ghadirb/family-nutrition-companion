@@ -227,3 +227,39 @@ export async function checkExpiryAndNotify(inventory, force = false) {
 }
 
 export { REMINDER_IDS };
+
+// ---------------------------------------------------------------------
+// یادآوری پایان Premium (اعلان محلی اندروید؛ ۳ روز و ۱ روز قبل از پایان)
+// فقط اگر کاربر قبلاً اجازهٔ اعلان داده باشد زمان‌بندی می‌شود؛ اینجا هرگز
+// درخواست مجوز نمی‌کنیم (مجوزها فقط در لحظهٔ استفاده گرفته می‌شوند).
+// با هر تمدید (تغییر تاریخ پایان) دوباره زمان‌بندی می‌شود و قبلی‌ها لغو می‌شوند.
+// ---------------------------------------------------------------------
+const PREMIUM_REMINDER_IDS = [9010, 9011];
+
+export async function schedulePremiumExpiryReminders(untilMs) {
+  if (!isNative()) return;
+  try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    await LocalNotifications.cancel({
+      notifications: PREMIUM_REMINDER_IDS.map((id) => ({ id })),
+    });
+    if (!untilMs || untilMs <= Date.now()) return;
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== "granted") return;
+    const DAY = 86400000;
+    const items = [
+      { id: PREMIUM_REMINDER_IDS[0], at: untilMs - 3 * DAY, body: "Premium شما تا ۳ روز دیگر تمام می‌شود. برای ادامهٔ دسترسی به امکانات پیشرفته، بستهٔ جدید تهیه کنید." },
+      { id: PREMIUM_REMINDER_IDS[1], at: untilMs - 1 * DAY, body: "Premium شما فردا تمام می‌شود. برای تمدید از بخش «پشتیبان و حساب» اقدام کنید." },
+    ]
+      .filter((n) => n.at > Date.now() + 60000)
+      .map((n) => ({
+        id: n.id,
+        title: "تندرسا · پایان Premium",
+        body: n.body,
+        schedule: { at: new Date(n.at), allowWhileIdle: true },
+      }));
+    if (items.length) await LocalNotifications.schedule({ notifications: items });
+  } catch {
+    // زمان‌بندی اعلان نباید هیچ بخشی از برنامه را خراب کند
+  }
+}

@@ -24,5 +24,9 @@ jobs:
           command: deploy
           secrets: |
             AVALAI_API_KEY
+            MYKET_PUBLIC_KEY
+            IAP_RECEIPT_SECRET
         env:
           AVALAI_API_KEY: ${{ secrets.AVALAI_API_KEY }}
+          MYKET_PUBLIC_KEY: ${{ secrets.MYKET_PUBLIC_KEY }}
+          IAP_RECEIPT_SECRET: ${{ secrets.IAP_RECEIPT_SECRET }}

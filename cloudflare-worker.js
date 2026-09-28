@@ -39,6 +39,140 @@ async function callAvalAI(env, model, messages) {
   };
 }
 
+
+// ---------------------------------------------------------------------
+// خرید درون‌برنامه‌ای مایکت (Myket IAB)
+// مایکت از اشتراک پشتیبانی نمی‌کند؛ بنابراین بسته‌های زمانی «مصرف‌شدنی»
+// (۱/۳/۱۲ ماهه) فروخته می‌شود. Worker امضای خرید را با کلید عمومی مایکت
+// (RSA / SHA1) تأیید می‌کند و یک رسید HMAC-امضاشده برمی‌گرداند.
+// Secrets لازم: MYKET_PUBLIC_KEY (base64 کلید عمومی) و IAP_RECEIPT_SECRET
+// ---------------------------------------------------------------------
+const IAP_PACKAGE = "ir.ghadirb.familynutrition";
+const IAP_PRODUCTS = {
+  premium_1m: 30,
+  premium_3m: 90,
+  premium_12m: 365,
+};
+
+const enc = new TextEncoder();
+const b64ToBytes = (b64) =>
+  Uint8Array.from(atob(b64.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+const bytesToB64Url = (bytes) =>
+  btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+const b64UrlToBytes = (s) =>
+  b64ToBytes(s.replace(/-/g, "+").replace(/_/g, "/"));
+
+async function verifyMyketSignature(env, signedData, signature) {
+  const key = await crypto.subtle.importKey(
+    "spki",
+    b64ToBytes(env.MYKET_PUBLIC_KEY),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-1" },
+    false,
+    ["verify"],
+  );
+  return crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    b64ToBytes(signature),
+    enc.encode(signedData),
+  );
+}
+
+async function hmacKey(env) {
+  return crypto.subtle.importKey(
+    "raw",
+    enc.encode(env.IAP_RECEIPT_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
+}
+
+async function signReceipt(env, payload) {
+  const body = bytesToB64Url(enc.encode(JSON.stringify(payload)));
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey(env), enc.encode(body));
+  return `${body}.${bytesToB64Url(sig)}`;
+}
+
+async function readReceipt(env, receipt) {
+  try {
+    const [body, sig] = String(receipt || "").split(".");
+    if (!body || !sig) return null;
+    const ok = await crypto.subtle.verify(
+      "HMAC",
+      await hmacKey(env),
+      b64UrlToBytes(sig),
+      enc.encode(body),
+    );
+    if (!ok) return null;
+    return JSON.parse(new TextDecoder().decode(b64UrlToBytes(body)));
+  } catch {
+    return null;
+  }
+}
+
+async function handleIapVerify(request, env) {
+  if (!env.MYKET_PUBLIC_KEY || !env.IAP_RECEIPT_SECRET)
+    return json({ error: "سرویس خرید هنوز روی سرور تنظیم نشده است." }, 503);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "درخواست نامعتبر است." }, 400);
+  }
+  const { originalJson, signature } = body || {};
+  if (typeof originalJson !== "string" || typeof signature !== "string")
+    return json({ error: "اطلاعات خرید ناقص است." }, 400);
+  let valid = false;
+  try {
+    valid = await verifyMyketSignature(env, originalJson, signature);
+  } catch {
+    valid = false;
+  }
+  if (!valid) return json({ error: "امضای خرید معتبر نیست." }, 403);
+  let p;
+  try {
+    p = JSON.parse(originalJson);
+  } catch {
+    return json({ error: "اطلاعات خرید نامعتبر است." }, 400);
+  }
+  const sku = p.productId;
+  const days = IAP_PRODUCTS[sku];
+  if (p.packageName !== IAP_PACKAGE || !days)
+    return json({ error: "این خرید مربوط به این برنامه نیست." }, 403);
+  if (Number(p.purchaseState || 0) !== 0)
+    return json({ error: "خرید تکمیل‌نشده یا لغوشده است." }, 403);
+  // شناسه نصب از developerPayload می‌آید که مایکت آن را امضا کرده است؛
+  // بنابراین کلاینت نمی‌تواند رسید را برای شناسهٔ دیگری بگیرد.
+  const installId = String(p.developerPayload || "").split(".")[0];
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(installId))
+    return json({ error: "شناسهٔ نصب در خرید یافت نشد." }, 400);
+  const receipt = await signReceipt(env, {
+    v: 1,
+    installId,
+    sku,
+    days,
+    orderId: String(p.orderId || p.token || p.purchaseToken || ""),
+    purchaseTime: Number(p.purchaseTime) || Date.now(),
+  });
+  return json({ ok: true, sku, days, installId, receipt });
+}
+
+async function handleIapCheck(request, env) {
+  if (!env.IAP_RECEIPT_SECRET)
+    return json({ error: "سرویس خرید هنوز روی سرور تنظیم نشده است." }, 503);
+  const { installId, receipts } = await request.json().catch(() => ({}));
+  const valid = [];
+  for (const r of Array.isArray(receipts) ? receipts.slice(0, 50) : []) {
+    const p = await readReceipt(env, r);
+    if (p && p.installId === installId && IAP_PRODUCTS[p.sku]) valid.push(r);
+  }
+  return json({ ok: true, valid });
+}
+
 addEventListener("fetch", (event) =>
   event.respondWith(handle(event.request, event)),
 );
@@ -52,9 +186,14 @@ async function handle(request, event) {
     return json({
       ok: true,
       configured: Boolean(env.AVALAI_API_KEY),
+      iapConfigured: Boolean(env.MYKET_PUBLIC_KEY && env.IAP_RECEIPT_SECRET),
       provider: "AvalAI",
       webModel: env.AVALAI_WEB_MODEL || "sonar",
     });
+  if (url.pathname === "/api/iap/verify" && request.method === "POST")
+    return handleIapVerify(request, env);
+  if (url.pathname === "/api/iap/check" && request.method === "POST")
+    return handleIapCheck(request, env);
   if (url.pathname === "/api/ai/transcribe" && request.method === "POST") {
     if (!env.AVALAI_API_KEY)
       return json({ error: "AVALAI_API_KEY is not configured." }, 500);

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { isPaidPremium } from "./features.jsx";
 import { MessageCircle, Send, Globe2, LoaderCircle } from "lucide-react";
 
 const API_BASE =
@@ -13,13 +14,14 @@ export function AiAssistant({ data, setData, notify }) {
   const month = new Date().toISOString().slice(0, 7);
   const used =
     data.aiUsage?.month === month ? Number(data.aiUsage.count || 0) : 0;
-  const limit = data.premium ? 100 : 5;
+  const paid = isPaidPremium(data);
+  const limit = paid ? 100 : 5;
   const ask = async (e) => {
     e?.preventDefault();
     if (!question.trim() || loading) return;
     if (used >= limit) {
       notify?.(
-        data.premium
+        paid
           ? "سقف اعتبار ماهانه AI تکمیل شده است."
           : "اعتبار رایگان این ماه تمام شده است؛ Premium را فعال کنید.",
       );

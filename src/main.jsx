@@ -42,10 +42,13 @@ import {
   startWebReminderLoop,
   getNotificationStatus,
   checkExpiryAndNotify,
+  schedulePremiumExpiryReminders,
 } from "./notifications.js";
 import {
   FREE_MEMBER_LIMIT,
   isPremiumActive,
+  isPaidPremium,
+  premiumDaysLeft,
   trialDaysLeft,
   PremiumGate,
   recipeBank,
@@ -54,6 +57,15 @@ import {
   MemberAnalysis,
   SnackAnalysis,
 } from "./features.jsx";
+import {
+  PLANS,
+  premiumUntil,
+  billingSupported,
+  buyPlan,
+  filterValidReceipts,
+  loadStore,
+  newInstallId,
+} from "./billing.js";
 
 const foodBank = [
   {
@@ -575,6 +587,69 @@ function App() {
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+  // شناسهٔ نصب: رسیدهای خرید به آن گره می‌خورند و همراه Backup منتقل می‌شود.
+  useEffect(() => {
+    if (!data.installId) setData((d) => ({ ...d, installId: newInstallId() }));
+  }, [data.installId]);
+  // مایکت: در شروع برنامه خریدهای مصرف‌نشده را تحویل می‌گیریم (الزام مستندات مایکت)،
+  // قیمت محصولات را از پنل می‌خوانیم و رسیدهای نامعتبر را دور می‌ریزیم.
+  const [store, setStore] = useState({ status: "loading", products: [] });
+  const [buying, setBuying] = useState("");
+  useEffect(() => {
+    if (!data.installId) return;
+    let cancelled = false;
+    (async () => {
+      const s = await loadStore();
+      const valid = await filterValidReceipts({
+        installId: data.installId,
+        iapReceipts: [...(data.iapReceipts || []), ...s.receipts],
+      });
+      if (cancelled) return;
+      setStore({ status: s.status, products: s.products });
+      setData((d) => {
+        const same =
+          valid.length === (d.iapReceipts || []).length &&
+          valid.every((r, i) => r === d.iapReceipts[i]);
+        return same ? d : { ...d, iapReceipts: valid };
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // فقط یک‌بار به‌ازای هر installId اجرا شود
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.installId]);
+  // یادآوری پایان Premium + هشدار داخل برنامه هنگام باز شدن (۳ روز یا کمتر)
+  const paidUntil = premiumUntil(data);
+  useEffect(() => {
+    schedulePremiumExpiryReminders(paidUntil);
+    const left = paidUntil - Date.now();
+    if (left > 0 && left <= 3 * 86400000) {
+      notify(`Premium شما ${premiumDaysLeft(data)} روز دیگر تمام می‌شود؛ از «پشتیبان و حساب» تمدید کنید.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidUntil]);
+  const buy = async (sku) => {
+    if (buying) return;
+    setBuying(sku);
+    try {
+      const receipt = await buyPlan(sku, data.installId);
+      setData((d) => ({
+        ...d,
+        iapReceipts: [...(d.iapReceipts || []), receipt],
+      }));
+      notify("خرید انجام شد؛ Premium فعال شد. ممنون از حمایت شما 🌿");
+    } catch (e) {
+      const m = String(e?.message || e);
+      notify(
+        /cancel|لغو|USER_CANCELED/i.test(m)
+          ? "خرید لغو شد."
+          : `خرید کامل نشد: ${m}`,
+      );
+    } finally {
+      setBuying("");
+    }
+  };
   // Hardware back button (Android): close modals/details first, then step
   // back through visited tabs, and only exit the app from the dashboard
   // with nothing else open. Without this, Capacitor's default behaviour
@@ -734,7 +809,10 @@ function App() {
     const r = new FileReader();
     r.onload = () => {
       try {
-        setData(JSON.parse(r.result));
+        const parsed = JSON.parse(r.result);
+        // فلگ Premium قدیمی/دستی از فایل پذیرفته نمی‌شود؛ فقط رسیدهای امضاشده معتبرند.
+        delete parsed.premium;
+        setData((d) => ({ ...parsed, installId: parsed.installId || d.installId }));
         notify("پشتیبان بازیابی شد.");
       } catch {
         notify("فایل پشتیبان معتبر نیست.");
@@ -814,8 +892,8 @@ function App() {
               <b>کاربر خانواده</b>
               <small>
                 {isPremiumActive(data)
-                  ? data.premium
-                    ? "Premium"
+                  ? isPaidPremium(data)
+                    ? `Premium · ${premiumDaysLeft(data)} روز مانده`
                     : `Premium آزمایشی · ${trialDaysLeft(data)} روز مانده`
                   : "حساب رایگان"}
               </small>
@@ -966,10 +1044,9 @@ function App() {
           importData={importData}
           startTrial={startTrial}
           openFamily={() => setModal("family")}
-          premiumOn={() => {
-            setData((d) => ({ ...d, premium: true }));
-            notify("حالت Premium فعال شد (نسخه نمایشی؛ اتصال پرداخت واقعی در مرحله بعد).");
-          }}
+          store={store}
+          buying={buying}
+          buy={buy}
         />
       )}{" "}
       {selected && modal !== "member" && (
@@ -2057,10 +2134,11 @@ function FamilyModal({ data, close, save, openWizard }) {
     </div>
   );
 }
-function BackupModal({ close, exportData, importData, data, premiumOn, startTrial, openFamily }) {
+function BackupModal({ close, exportData, importData, data, store, buying, buy, startTrial, openFamily }) {
   const ref = React.useRef();
   const active = isPremiumActive(data);
-  const trialing = active && !data.premium;
+  const paid = isPaidPremium(data);
+  const trialing = active && !paid;
   return (
     <div className="modal-backdrop">
       <div className="modal">
@@ -2105,8 +2183,8 @@ function BackupModal({ close, exportData, importData, data, premiumOn, startTria
           <Crown size={20} />
           <div>
             <b>
-              {data.premium
-                ? "Premium فعال است"
+              {paid
+                ? `Premium فعال است · ${premiumDaysLeft(data)} روز مانده`
                 : trialing
                   ? `Premium آزمایشی · ${trialDaysLeft(data)} روز مانده`
                   : "حساب رایگان"}
@@ -2117,18 +2195,38 @@ function BackupModal({ close, exportData, importData, data, premiumOn, startTria
                 : `تا ${FREE_MEMBER_LIMIT} عضو، ثبت غذا/تنقلات/نوشیدنی و گزارش ساده رایگان است.`}
             </p>
           </div>
-          {!active && (
-            <button onClick={data.trialUsed ? premiumOn : startTrial}>
-              {data.trialUsed ? "فعال‌سازی نمایشی" : "۷ روز رایگان"}
-            </button>
+          {!active && !data.trialUsed && (
+            <button onClick={startTrial}>۷ روز رایگان</button>
           )}
         </div>
-        {!active && data.trialUsed && (
-          <p className="lock-hint">
-            دوره آزمایشی رایگان قبلاً استفاده شده؛ فعال‌سازی نمایشی فقط برای
-            بررسی امکانات است تا اتصال پرداخت واقعی (اشتراک ماهانه/سه‌ماهه/سالانه) تکمیل شود.
-          </p>
-        )}
+        <div className="plan-list">
+          {PLANS.map((pl) => {
+            const prod = store.products.find((x) => x.sku === pl.sku);
+            return (
+              <button
+                key={pl.sku}
+                className="plan-card"
+                disabled={!!buying || store.status !== "ready" || !prod}
+                onClick={() => buy(pl.sku)}
+              >
+                <b>{pl.label}</b>
+                <small>{pl.days} روز</small>
+                <span>{buying === pl.sku ? "..." : prod?.price || "—"}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="lock-hint">
+          {store.status === "ready"
+            ? "پرداخت امن از طریق مایکت انجام می‌شود. بسته‌ها تمدیدشونده نیستند؛ با خرید بستهٔ جدید، زمان به پایان دورهٔ فعلی اضافه می‌شود."
+            : store.status === "loading"
+              ? "در حال دریافت قیمت‌ها از مایکت..."
+              : store.status === "no_myket"
+                ? "برای خرید، برنامهٔ مایکت باید روی گوشی نصب باشد."
+                : billingSupported()
+                  ? "خرید در این نسخه فعال نیست؛ نسخهٔ مایکت برنامه را نصب کنید."
+                  : "خرید فقط در نسخهٔ اندروید (مایکت) امکان‌پذیر است."}
+        </p>
       </div>
     </div>
   );

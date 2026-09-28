@@ -2,7 +2,7 @@ name: Build Family Nutrition Companion
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
     tags: ['v*']
   pull_request:
     branches: [main]
@@ -53,6 +53,8 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
+        env:
+          MYKET_PUBLIC_KEY: ${{ secrets.MYKET_PUBLIC_KEY }}
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
@@ -118,6 +120,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MYKET_PUBLIC_KEY: ${{ secrets.MYKET_PUBLIC_KEY }}
         run: |
           ./gradlew assembleRelease --no-daemon \
             -PreleaseVersionName=${{ steps.ver.outputs.versionName }} \
