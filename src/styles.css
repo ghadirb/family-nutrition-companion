@@ -84,3 +84,10 @@
    .top-actions .icon-btn{display:none} rule at narrow widths just for
    this one button (higher specificity wins regardless of source order). */
 .top-actions .icon-btn.family-btn{display:grid}
+
+.plan-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.plan-card{display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid #ecdfc4;background:#fffaf0;border-radius:12px;padding:12px 6px}
+.plan-card b{font-size:12px;color:#8a6a2c}
+.plan-card small{font-size:9px;color:#958874}
+.plan-card span{font-size:11px;font-weight:700;color:#4e8861}
+.plan-card:disabled{opacity:.55}

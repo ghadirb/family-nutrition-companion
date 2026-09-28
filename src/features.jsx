@@ -9,6 +9,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { premiumUntil, premiumDaysLeft } from "./billing.js";
 
 // ---------------------------------------------------------------------
 // Real free / Premium gatekeeping
@@ -17,15 +18,21 @@ import {
 // can always see exactly what is enforced and where).
 export const FREE_MEMBER_LIMIT = 4;
 
-// A user is Premium if they either bought it (data.premium) or are
-// inside an active trial window (data.trialEndsAt in the future).
+// Premium یعنی: بستهٔ خریداری‌شدهٔ معتبر (رسید امضاشدهٔ مایکت) که هنوز
+// تمام نشده، یا دورهٔ آزمایشی فعال. فلگ قدیمی data.premium دیگر اثری ندارد.
 export function isPremiumActive(data) {
   if (!data) return false;
-  if (data.premium) return true;
+  if (premiumUntil(data) > Date.now()) return true;
   if (data.trialEndsAt && new Date(data.trialEndsAt).getTime() > Date.now())
     return true;
   return false;
 }
+
+export function isPaidPremium(data) {
+  return premiumUntil(data) > Date.now();
+}
+
+export { premiumDaysLeft };
 
 export function trialDaysLeft(data) {
   if (!data?.trialEndsAt) return 0;
