@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
   Plus,
   Trash2,
@@ -17,10 +17,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import HealthConnect from "./healthConnect.js";
+const VoiceRecorder = registerPlugin("VoiceRecorder");
 import {
   DEFAULT_REMINDER_TIMES,
   getNotificationStatus,
   requestNotificationPermission,
+  sendTestNotification,
   syncReminderSchedule,
 } from "./notifications.js";
 
@@ -326,7 +328,9 @@ export function ReminderCenter({ data, setData, notify }) {
   // شده، زمان‌بندی واقعی روی اندروید دوباره ساخته می‌شود.
   useEffect(() => {
     if (status === "granted") {
-      syncReminderSchedule(reminders, times);
+      syncReminderSchedule(reminders, times).catch((e) =>
+        notify(`زمان‌بندی یادآوری ناموفق بود: ${e?.message || e}`),
+      );
     }
   }, [reminders, times, status]);
 
@@ -343,7 +347,11 @@ export function ReminderCenter({ data, setData, notify }) {
     if (current === "granted") {
       notify("اعلان‌ها از قبل فعال است.");
       setStatus("granted");
-      await syncReminderSchedule(reminders, times);
+      try {
+        await syncReminderSchedule(reminders, times);
+      } catch (e) {
+        notify(`زمان‌بندی یادآوری ناموفق بود: ${e?.message || e}`);
+      }
       return;
     }
     if (current === "denied") {
@@ -359,9 +367,22 @@ export function ReminderCenter({ data, setData, notify }) {
     setStatus(granted ? "granted" : "denied");
     if (granted) {
       notify("اعلان‌ها با موفقیت فعال شد.");
-      await syncReminderSchedule(reminders, times);
+      try {
+        await syncReminderSchedule(reminders, times);
+      } catch (e) {
+        notify(`زمان‌بندی یادآوری ناموفق بود: ${e?.message || e}`);
+      }
     } else {
       notify("اجازهٔ اعلان داده نشد.");
+    }
+  };
+
+  const testNotification = async () => {
+    try {
+      await sendTestNotification();
+      notify("اعلان آزمایشی تا چند ثانیهٔ دیگر ارسال می‌شود.");
+    } catch (e) {
+      notify(`اعلان آزمایشی ناموفق بود: ${e?.message || e}`);
     }
   };
 
@@ -416,6 +437,9 @@ export function ReminderCenter({ data, setData, notify }) {
           <BellRing size={16} />
           {status === "granted" ? "به‌روزرسانی اعلان‌ها" : "فعال‌سازی اعلان‌ها"}
         </button>
+        <button className="secondary" onClick={testNotification}>
+          ارسال اعلان آزمایشی
+        </button>
         {!isNative && status === "granted" && (
           <p className="reminder-note">
             توجه: در نسخهٔ وب، اعلان‌ها فقط تا زمانی که این صفحه باز باشد ارسال
@@ -466,7 +490,62 @@ export function CaptureCenter({ notify }) {
     rec.onerror = () => notify("ثبت صوتی انجام نشد.");
     rec.start();
   };
-  const record = async () => {
+  const uploadForTranscription = async (blob, fileName) => {
+    const form = new FormData();
+    form.append("file", blob, fileName);
+    setBusy(true);
+    try {
+      const base =
+        import.meta.env.VITE_API_BASE_URL ||
+        "https://family-nutrition-companion-api.ghadir-baraty.workers.dev";
+      const response = await fetch(`${base}/api/ai/transcribe`, {
+        method: "POST",
+        body: form,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "خطا در تبدیل صدا");
+      setVoice(result.text || "");
+      notify(
+        `صدا با مدل ${result.model || "AvalAI"} به متن تبدیل شد؛ قبل از ثبت بررسی کنید.`,
+      );
+    } catch (e) {
+      notify(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recordNative = async () => {
+    if (recording) {
+      try {
+        const { base64, mimeType, fileName } = await VoiceRecorder.stopRecording();
+        setRecording(false);
+        const byteChars = atob(base64);
+        const bytes = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+        await uploadForTranscription(new Blob([bytes], { type: mimeType }), fileName);
+      } catch (e) {
+        setRecording(false);
+        notify(e.message || "پایان ضبط ناموفق بود.");
+      }
+      return;
+    }
+    try {
+      const perm = await VoiceRecorder.requestPermission();
+      if (!perm.granted) {
+        notify(
+          "دسترسی به میکروفون داده نشده. از تنظیمات گوشی → برنامه‌ها → تندرسا → مجوزها، دسترسی میکروفون را فعال کنید.",
+        );
+        return;
+      }
+      await VoiceRecorder.startRecording();
+      setRecording(true);
+    } catch (e) {
+      notify(e.message || "شروع ضبط ناموفق بود.");
+    }
+  };
+
+  const recordWeb = async () => {
     if (recording) {
       recorder.current?.stop();
       setRecording(false);
@@ -483,38 +562,13 @@ export function CaptureCenter({ notify }) {
         const blob = new Blob(chunks.current, {
           type: r.mimeType || "audio/webm",
         });
-        const form = new FormData();
-        form.append("file", blob, "voice.webm");
-        setBusy(true);
-        try {
-          const base =
-            import.meta.env.VITE_API_BASE_URL ||
-            "https://family-nutrition-companion-api.ghadir-baraty.workers.dev";
-          const response = await fetch(`${base}/api/ai/transcribe`, {
-            method: "POST",
-            body: form,
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "خطا در تبدیل صدا");
-          setVoice(result.text || "");
-          notify(
-            `صدا با مدل ${result.model || "AvalAI"} به متن تبدیل شد؛ قبل از ثبت بررسی کنید.`,
-          );
-        } catch (e) {
-          notify(e.message);
-        } finally {
-          setBusy(false);
-        }
+        await uploadForTranscription(blob, "voice.webm");
       };
       r.start();
       setRecording(true);
     } catch (e) {
       if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
-        notify(
-          isNative
-            ? "دسترسی به میکروفون رد شده. از تنظیمات گوشی → برنامه‌ها → تندرسا → مجوزها، دسترسی میکروفون را فعال کنید و دوباره امتحان کنید."
-            : "دسترسی به میکروفون رد شده؛ از تنظیمات مرورگر اجازه دهید.",
-        );
+        notify("دسترسی به میکروفون رد شده؛ از تنظیمات مرورگر اجازه دهید.");
       } else if (e?.name === "NotFoundError") {
         notify("میکروفونی روی این دستگاه پیدا نشد.");
       } else {
@@ -522,6 +576,8 @@ export function CaptureCenter({ notify }) {
       }
     }
   };
+
+  const record = isNative ? recordNative : recordWeb;
   return (
     <div className="page-body">
       <div className="section-head">

@@ -110,6 +110,36 @@ export async function showNotification(title, body) {
   }
 }
 
+// اعلان آزمایشی فوری؛ برخلاف showNotification خطاها را پنهان نمی‌کند تا
+// دلیل واقعی مشکل (اگر باشد) به کاربر نشان داده شود.
+export async function sendTestNotification() {
+  if (isNative()) {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== "granted") {
+      const res = await LocalNotifications.requestPermissions();
+      if (res.display !== "granted") throw new Error("اجازهٔ اعلان داده نشده است.");
+    }
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 9999,
+          title: "اعلان آزمایشی تندرسا",
+          body: "اگر این پیام را می‌بینید، اعلان‌ها روی گوشی شما کار می‌کنند.",
+          schedule: { at: new Date(Date.now() + 3000), allowWhileIdle: true },
+        },
+      ],
+    });
+    return;
+  }
+  if (typeof Notification === "undefined") throw new Error("اعلان در این مرورگر پشتیبانی نمی‌شود.");
+  if (Notification.permission !== "granted") {
+    const res = await Notification.requestPermission();
+    if (res !== "granted") throw new Error("اجازهٔ اعلان داده نشده است.");
+  }
+  await showNotification("اعلان آزمایشی تندرسا", "اعلان‌ها کار می‌کنند.");
+}
+
 // روی اندروید: زمان‌بندی واقعی اعلان‌های تکرارشوندهٔ روزانه در سطح سیستم‌عامل
 // (با AlarmManager)، که حتی وقتی برنامه بسته باشد هم فعال می‌مانند.
 export async function syncReminderSchedule(reminders, times) {

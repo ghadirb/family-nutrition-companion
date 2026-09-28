@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(HealthConnectPlugin.class);
+    registerPlugin(VoiceRecorderPlugin.class);
     super.onCreate(savedInstanceState);
     requestMediaPermissionsIfNeeded();
     allowWebViewMediaPermissionRequests();
