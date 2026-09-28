@@ -161,7 +161,7 @@ export async function syncReminderSchedule(reminders, times) {
       id: REMINDER_IDS[key],
       title,
       body,
-      schedule: { on: { hour, minute }, every: "day", allowWhileIdle: true },
+      schedule: { on: { hour, minute }, allowWhileIdle: true },
     });
   }
   if (toSchedule.length) {

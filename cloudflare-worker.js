@@ -85,6 +85,8 @@ async function handle(request, event) {
         );
         body.append("model", model);
         body.append("language", "fa");
+        body.append("prompt", "این یک جملهٔ فارسی دربارهٔ غذا و مواد غذایی است.");
+        body.append("temperature", "0");
         try {
           const response = await fetch(
             `${env.AVALAI_BASE_URL || "https://api.avalai.ir/v1"}/audio/transcriptions`,
@@ -102,6 +104,11 @@ async function handle(request, event) {
           const text = result.text || result.transcript || "";
           if (!text) {
             lastError = "پاسخ خالی از مدل تبدیل صوت.";
+            continue;
+          }
+          // خروجی چینی/ژاپنی/کره‌ای یعنی مدل صدا را اشتباه شناخته؛ مدل بعدی را امتحان کن.
+          if (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(text)) {
+            lastError = "مدل متن نامعتبر (غیرفارسی) برگرداند.";
             continue;
           }
           return json({ text, model });
