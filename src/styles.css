@@ -93,3 +93,13 @@
 .plan-card:disabled{opacity:.55}
 
 @media print{.sidebar,.toast,.report-actions,.lock-card,.modal-backdrop,.top-actions,.sidebar-toggle{display:none!important}.content{margin:0!important;padding:0!important}}
+
+/* فرم‌های لیست خرید و موجودی خانه: روی موبایل فیلدها و دکمه افزودن از صفحه بیرون نزنند */
+.add-inline>*,.inventory-form>*{min-width:0}
+.add-inline input,.add-inline select,.inventory-form input,.inventory-form select{width:100%;box-sizing:border-box}
+@media(max-width:720px){
+  .add-inline,.inventory-form{grid-template-columns:1fr 1fr}
+  .add-inline>input:first-child,.inventory-form>input:first-child{grid-column:1/-1}
+  .add-inline>button,.inventory-form>button{grid-column:1/-1;justify-content:center;width:100%}
+  .shopping-grid,.inventory-grid{grid-template-columns:1fr}
+}
