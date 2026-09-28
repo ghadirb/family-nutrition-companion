@@ -16,7 +16,7 @@ import { premiumUntil, premiumDaysLeft } from "./billing.js";
 // ---------------------------------------------------------------------
 // Free tier limits (kept out of hard-coded feature checks so the caller
 // can always see exactly what is enforced and where).
-export const FREE_MEMBER_LIMIT = 4;
+export const FREE_MEMBER_LIMIT = 2;
 
 // Premium یعنی: بستهٔ خریداری‌شدهٔ معتبر (رسید امضاشدهٔ مایکت) که هنوز
 // تمام نشده، یا دورهٔ آزمایشی فعال. فلگ قدیمی data.premium دیگر اثری ندارد.
