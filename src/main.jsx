@@ -725,11 +725,14 @@ function App() {
             <h1>
               {tab === "home"
                 ? `سلام${data.familyName ? `، ${data.familyName}` : ""} 🌿`
-                : tab === "members"
-                  ? "اعضای خانواده"
-                  : tab === "plan"
-                    ? "برنامه غذایی"
-                    : "گزارش‌های تغذیه"}
+                : {
+                    members: "اعضای خانواده",
+                    plan: "برنامه غذایی",
+                    reports: "گزارش‌های تغذیه",
+                    shopping: "لیست خرید",
+                    inventory: "موجودی خانه",
+                    assistant: "دستیار هوشمند تغذیه",
+                  }[tab] || "تندرسا"}
             </h1>
           </div>
           <div className="top-actions">
